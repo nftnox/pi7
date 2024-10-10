@@ -231,20 +231,13 @@ textarea {
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
-                <button id="start-call">📞</button> <!-- Nova ikonica za poziv -->
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
                 <button id="send-message">Pošalji</button>
             </div>
             
-            
         </div>
     </div>
     
-    <div id="video-container" style="display: none;">
-        <video id="local-video" autoplay playsinline muted></video>
-        <video id="remote-video" autoplay playsinline></video>
-        <button id="end-call">End Call</button>
-    </div>
     
 
     
@@ -881,141 +874,6 @@ function openChatWithUser(userId) {
     document.getElementById("back-to-users").style.display = "block"; // Prikazi dugme za povratak
 }
 
-
-      
-
-
-
-let localStream;
-let peerConnection;
-const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
-// Funkcija za pokretanje poziva
-async function startCall() {
-    try {
-        // Korisnik A dobija pristup kameri i mikrofonu
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('local-video').srcObject = localStream;
-        document.getElementById('video-container').style.display = 'block'; // Prikaži video poziv
-
-        // Kreiraj peer connection i dodaj lokalni stream
-        peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                sendSignal({ type: 'candidate', candidate: event.candidate });
-            }
-        };
-
-        peerConnection.ontrack = event => {
-            document.getElementById('remote-video').srcObject = event.streams[0]; // Prikaz remote video
-        };
-
-        // Kreiraj offer i pošalji korisniku B
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        sendSignal({ type: 'offer', offer });
-    } catch (error) {
-        console.error("Greška prilikom pokretanja poziva:", error);
-    }
-}
-
-// Funkcija za slanje signaling podataka putem Firebase-a
-async function sendSignal(data) {
-    try {
-        const signalRef = collection(db, 'callSignals');
-        await addDoc(signalRef, {
-            ...data,
-            sender: username, // Korisnik A
-            recipient: selectedUserName, // Korisnik B (prima poziv)
-            timestamp: new Date()
-        });
-        console.log("Signaling podaci uspešno poslani:", data);
-    } catch (error) {
-        console.error("Greška prilikom slanja signaling podataka:", error);
-    }
-}
-
-
-
-
-// Funkcija za slušanje signaling podataka kod korisnika B
-function listenForSignals() {
-    const signalRef = collection(db, 'callSignals');
-    const q = query(signalRef, where('recipient', '==', username)); // Korisnik B sluša signaling
-
-    onSnapshot(q, (snapshot) => {
-        snapshot.forEach((doc) => {
-            const data = doc.data();
-
-            // Ako korisnik B primi offer, prikaži prozor za prihvatanje poziva
-            if (data.type === 'offer') {
-                showIncomingCallPrompt(data.sender, data.offer);
-            } else if (data.type === 'answer') {
-                handleAnswer(data.answer);
-            } else if (data.type === 'candidate') {
-                handleCandidate(data.candidate);
-            }
-        });
-    });
-}
-
-// Funkcija za prikazivanje obaveštenja o dolaznom pozivu
-function showIncomingCallPrompt(sender, offer) {
-    const acceptCall = confirm(`${sender} vas zove. Prihvatate li poziv?`);
-
-    if (acceptCall) {
-        acceptIncomingCall(offer); // Ako prihvati poziv, uspostavlja se WebRTC veza
-    } else {
-        console.log("Poziv odbijen.");
-    }
-}
-
-// Funkcija za prihvatanje dolaznog poziva
-async function acceptIncomingCall(offer) {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('local-video').srcObject = localStream;
-        document.getElementById('video-container').style.display = 'block'; // Prikaz videa
-
-        peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                sendSignal({ type: 'candidate', candidate: event.candidate });
-            }
-        };
-
-        peerConnection.ontrack = event => {
-            document.getElementById('remote-video').srcObject = event.streams[0]; // Prikaz videa korisnika A
-        };
-
-        // Postavi remote opis (offer) i kreiraj odgovor (answer)
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-
-        // Pošalji answer nazad korisniku A
-        sendSignal({ type: 'answer', answer });
-    } catch (error) {
-        console.error("Greška prilikom prihvatanja poziva:", error);
-    }
-}
-
-
-document.getElementById('end-call').addEventListener('click', () => {
-    peerConnection.close();
-    document.getElementById('video-container').style.display = 'none'; // Sakrij video
-});
-
-
-
-async function handleCandidate(candidate) {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-}
 
       
 
