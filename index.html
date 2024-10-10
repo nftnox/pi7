@@ -888,45 +888,46 @@ function openChatWithUser(userId) {
 
 let localStream;
 let peerConnection;
-const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+const servers = {
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
 
 // Funkcija za pokretanje poziva
 async function startCall() {
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        document.getElementById('local-video').srcObject = localStream;
-        document.getElementById('video-container').style.display = 'block'; // Prikaži video poziv
-
-        peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-        peerConnection.onicecandidate = event => {
-            if (event.candidate) {
-                sendSignal({ type: 'candidate', candidate: event.candidate });
-            }
-        };
-
-        peerConnection.ontrack = event => {
-            document.getElementById('remote-video').srcObject = event.streams[0];
-        };
-
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-
-        sendSignal({ type: 'offer', offer });
-    } catch (error) {
-        console.error("Greška prilikom pokretanja poziva:", error);
-    }
-}
-
-// Funkcija za prihvatanje poziva i slanje odgovora (answer)
-async function handleOffer(offer) {
-    const acceptCall = confirm(`${selectedUserName} vas zove. Prihvatate li poziv?`);
-    if (!acceptCall) return; // Ako korisnik odbije poziv
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    document.getElementById('local-video').srcObject = localStream;
+    document.getElementById('video-container').style.display = 'block'; // Prikaži video poziv
 
     peerConnection = new RTCPeerConnection(servers);
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+            sendSignal({ type: 'candidate', candidate: event.candidate });
+        }
+    };
+
+    peerConnection.ontrack = event => {
+        document.getElementById('remote-video').srcObject = event.streams[0];
+    };
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    sendSignal({ type: 'offer', offer });
+}
+
+// Funkcija za primanje ponude (offer) i slanje odgovora (answer)
+async function handleOffer(offer) {
+    const acceptCall = confirm(`${selectedUserName} vas zove. Prihvatate li poziv?`);
+    if (!acceptCall) {
+        return; // Ako odbije poziv, prekidamo postupak
+    }
+
+    peerConnection = new RTCPeerConnection(servers);
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
             sendSignal({ type: 'candidate', candidate: event.candidate });
@@ -954,32 +955,30 @@ async function handleCandidate(candidate) {
     await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
 }
 
-// Funkcija za slanje signaling podataka putem Firestore-a
+// Funkcija za slanje signaling podataka putem Firebase-a
 async function sendSignal(data) {
     try {
         const signalRef = collection(db, 'callSignals');
         await addDoc(signalRef, {
             ...data,
-            sender: username, // Tvoj korisnički ID
-            recipient: selectedUserName, // Korisnik kome šalješ poziv
+            sender: username,
+            recipient: selectedUserName,
             timestamp: new Date()
         });
-        console.log("Signaling podaci uspešno poslani:", data);
+        console.log("Signal podaci uspješno poslani:", data);
     } catch (error) {
-        console.error("Greška prilikom slanja signaling podataka:", error);
+        console.error("Greška prilikom slanja signal podataka:", error);
     }
 }
 
 // Funkcija za slušanje signaling podataka
 function listenForSignals() {
-    console.log("Slušam signaling podatke za korisnika:", username);
     const signalRef = collection(db, 'callSignals');
     const q = query(signalRef, where('recipient', '==', username));
 
     onSnapshot(q, (snapshot) => {
         snapshot.forEach((doc) => {
             const data = doc.data();
-            console.log("Primljeni signaling podaci:", data);
 
             if (data.type === 'offer') {
                 handleOffer(data.offer);
@@ -994,7 +993,8 @@ function listenForSignals() {
 
 // Pokretanje poziva i slušanje signaling podataka
 document.getElementById('start-call').addEventListener('click', async () => {
-    listenForSignals(); // Slušaj signaling podatke
+    selectedUserName = 'ime_korisnika'; // Postavi ime korisnika sa kojim želiš poziv
+    listenForSignals(); // Počni slušati signaling podatke
     await startCall();  // Započni poziv
 });
 
@@ -1003,7 +1003,6 @@ document.getElementById('end-call').addEventListener('click', () => {
     peerConnection.close();
     document.getElementById('video-container').style.display = 'none'; // Sakrij video
 });
-
 
       
 
