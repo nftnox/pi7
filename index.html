@@ -888,23 +888,22 @@ function openChatWithUser(userId) {
 
 let localStream;
 let peerConnection;
+let isCallInProgress = false; // Prati status poziva
 const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 // Funkcija za pokretanje poziva
 async function startCall() {
+    if (isCallInProgress) return; // Spreči ponovno pokretanje poziva ako je već u toku
     try {
-        // Dohvati lokalni video/audio stream
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         document.getElementById('local-video').srcObject = localStream;
         document.getElementById('video-container').style.display = 'block'; // Prikaži video poziv
 
-        // Kreiraj peer connection
         peerConnection = new RTCPeerConnection(servers);
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
         peerConnection.onicecandidate = event => {
             if (event.candidate) {
-                // Pošalji ICE kandidata korisniku sa kojim je otvoren chat
                 sendSignal({ type: 'candidate', candidate: event.candidate });
             }
         };
@@ -913,12 +912,11 @@ async function startCall() {
             document.getElementById('remote-video').srcObject = event.streams[0];
         };
 
-        // Kreiraj offer za poziv i postavi ga kao lokalni opis
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
-        // Pošalji offer korisniku s kojim si otvorio chat
         sendSignal({ type: 'offer', offer });
+        isCallInProgress = true; // Obeleži da je poziv u toku
     } catch (error) {
         console.error("Greška prilikom pokretanja poziva:", error);
     }
@@ -926,10 +924,10 @@ async function startCall() {
 
 // Funkcija za prihvatanje poziva i slanje odgovora (answer)
 async function handleOffer(offer) {
+    if (isCallInProgress) return; // Spreči da primalac ponovo šalje offer
     const acceptCall = confirm(`${selectedUserName} vas zove. Prihvatate li poziv?`);
     if (!acceptCall) return; // Ako korisnik odbije poziv
 
-    // Prihvati poziv
     peerConnection = new RTCPeerConnection(servers);
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
@@ -943,13 +941,12 @@ async function handleOffer(offer) {
         document.getElementById('remote-video').srcObject = event.streams[0];
     };
 
-    // Postavi offer kao remote opis i kreiraj odgovor (answer)
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
-    // Pošalji odgovor korisniku koji je poslao offer
     sendSignal({ type: 'answer', answer });
+    isCallInProgress = true; // Obeleži da je poziv u toku
 }
 
 // Funkcija za primanje odgovora (answer)
@@ -1003,8 +1000,7 @@ function listenForSignals() {
 
 // Pokretanje poziva i slušanje signaling podataka
 document.getElementById('start-call').addEventListener('click', async () => {
-    // Slušaj signaling podatke, ali slanje signala ide korisniku s kojim je otvoren chat (selectedUserName)
-    listenForSignals();
+    listenForSignals(); // Počni slušanje signaling podataka
     await startCall();  // Započni poziv
 });
 
@@ -1012,6 +1008,7 @@ document.getElementById('start-call').addEventListener('click', async () => {
 document.getElementById('end-call').addEventListener('click', () => {
     peerConnection.close();
     document.getElementById('video-container').style.display = 'none'; // Sakrij video
+    isCallInProgress = false; // Resetuj status poziva kada je završeno
 });
 
 
