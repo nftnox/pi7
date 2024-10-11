@@ -929,11 +929,14 @@ document.getElementById('start-call').addEventListener('click', async () => {
 
 
 // Funkcija za slušanje dolaznih poziva kada korisnik uđe u aplikaciju
+// Funkcija za slušanje dolaznih poziva kada korisnik uđe u aplikaciju
 function listenForIncomingCalls() {
     const callRequestsCollection = collection(db, 'callRequests');
+
+    // Osluškujemo za pozive upućene trenutnom korisniku
     const q = query(callRequestsCollection, where('recipient', '==', username), where('status', '==', 'calling'));
 
-    // Osluškujemo za promene u callRequests kolekciji
+    // Aktivno slušamo sve promene u pozivima
     onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach(async (change) => {
             if (change.type === 'added') {
@@ -954,7 +957,7 @@ function listenForIncomingCalls() {
                 document.getElementById('accept-call').addEventListener('click', async () => {
                     await updateDoc(doc(db, 'callRequests', callId), { status: 'accepted' });
                     document.body.removeChild(incomingCallPrompt);
-
+                    
                     // Započni WebRTC poziv nakon prihvatanja
                     startWebRTCConnection(callData);
                 });
@@ -969,8 +972,9 @@ function listenForIncomingCalls() {
     });
 }
 
-// Aktiviraj funkciju za slušanje poziva kada se korisnik prijavi u aplikaciju
+// Aktiviraj slušanje poziva čim korisnik uđe u aplikaciju
 listenForIncomingCalls();
+
 
 
 function startWebRTCConnection(callData) {
