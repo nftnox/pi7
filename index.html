@@ -909,6 +909,17 @@ function openChatWithUser(userId) {
 document.getElementById('start-call').addEventListener('click', async () => {
     console.log('Pokretanje poziva od:', username, 'ka:', selectedUserName); // Log za proveru
     
+    // Kreiraj RTC PeerConnection
+    const pc = new RTCPeerConnection();
+
+    // Uzimanje mikrofona korisnika
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    // Kreiranje WebRTC offer-a
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
     // Kreiraj zapis u `callRequests`
     const callRequestDoc = await addDoc(collection(db, 'callRequests'), {
         caller: username, // Trenutno logovani korisnik
@@ -919,18 +930,18 @@ document.getElementById('start-call').addEventListener('click', async () => {
     
     const callId = callRequestDoc.id; // ID zapisa u callRequests
     
-    // Kreiraj zapis u `calls` kolekciji kako bi primalac video poziv
+    // Kreiraj zapis u `calls` kolekciji kako bi primalac video poziv i postavi offer
     await addDoc(collection(db, 'calls'), {
         caller: username,
         recipient: selectedUserName,
         status: 'calling',
-        offer: null,  // Ovo ćemo popuniti kada se WebRTC offer kreira
+        offer: { type: offer.type, sdp: offer.sdp },  // Postavi WebRTC offer ovde
         answer: null, // Ovo će popuniti primalac kada prihvati poziv
         callId: callId, // Referenca na ID u `callRequests`
         timestamp: new Date()
     });
     
-    console.log("Poziv poslat u obe kolekcije `callRequests` i `calls`.");
+    console.log("Poziv poslat u obe kolekcije `callRequests` i `calls` sa WebRTC offer-om.");
 
     // Prikazivanje prozora "Zovete {ime korisnika}"
     const callingPrompt = document.createElement('div');
@@ -950,6 +961,7 @@ document.getElementById('start-call').addEventListener('click', async () => {
         }
     });
 });
+
 
 
 
