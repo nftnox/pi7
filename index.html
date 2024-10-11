@@ -188,26 +188,6 @@ textarea {
 
 
 
-.calling-prompt, .incoming-call-prompt {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    padding: 20px;
-    background-color: white;
-    border: 1px solid black;
-    z-index: 1000;
-    text-align: center;
-}
-
-.calling-prompt p, .incoming-call-prompt p {
-    margin-bottom: 15px;
-}
-
-.calling-prompt button, .incoming-call-prompt button {
-    margin: 5px;
-    padding: 10px;
-}
 
 
     </style>
@@ -897,19 +877,16 @@ function openChatWithUser(userId) {
 }
 
 
-      
-// Početak funkcije za pokretanje poziva
+      // Početak funkcije za pokretanje poziva
 document.getElementById('start-call').addEventListener('click', async () => {
-    const callDoc = await addDoc(collection(db, 'calls'), {
+    const callDoc = await addDoc(collection(db, 'callRequests'), {
         caller: username, // Trenutno logovani korisnik
         recipient: selectedUserName, // Korisnik kojem šaljemo poziv
-        offer: null, // Ovo će biti popunjeno kasnije
-        answer: null, // Ovo će biti popunjeno kasnije
-        status: 'calling' // Status poziva
+        status: 'calling', // Status poziva
+        timestamp: new Date() // Vremenska oznaka kada je poziv poslan
     });
 
     const callId = callDoc.id;
-    const callDocRef = doc(db, 'calls', callId);
 
     // Prikazivanje prozora "Zovete {ime korisnika}"
     const callingPrompt = document.createElement('div');
@@ -917,58 +894,30 @@ document.getElementById('start-call').addEventListener('click', async () => {
     callingPrompt.innerHTML = `<p>Zovete ${selectedUserName}...</p>`;
     document.body.appendChild(callingPrompt);
 
-    // Kreiranje RTC PeerConnection
-    const pc = new RTCPeerConnection();
-
-    // Uzimanje mikrofona korisnika
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-    // Slanje ICE kandidata
-    pc.onicecandidate = event => {
-        if (event.candidate) {
-            addDoc(collection(callDocRef, 'callerCandidates'), event.candidate.toJSON());
+    // Logika za prikaz da li korisnik odbija ili prihvata poziv
+    onSnapshot(doc(db, 'callRequests', callId), (docSnapshot) => {
+        const callData = docSnapshot.data();
+        if (callData.status === 'accepted') {
+            document.body.removeChild(callingPrompt); // Uklanjamo prompt nakon što korisnik prihvati poziv
+            startWebRTCConnection(callData); // Funkcija koja započinje WebRTC komunikaciju (detalji niže)
+        } else if (callData.status === 'declined') {
+            document.body.removeChild(callingPrompt); // Uklanjanje prompta ako je poziv odbijen
+            alert('Poziv je odbijen');
         }
-    };
-
-    // Kreiranje ponude (offer) za poziv
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-
-    // Ažuriranje Firestore dokumenta s offer-om
-    await updateDoc(callDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
-
-    // Slušanje odgovora od primaoca poziva
-    onSnapshot(callDocRef, snapshot => {
-        const data = snapshot.data();
-        if (data.answer && !pc.currentRemoteDescription) {
-            const answerDescription = new RTCSessionDescription(data.answer);
-            pc.setRemoteDescription(answerDescription);
-            document.body.removeChild(callingPrompt); // Uklanjanje prompta nakon prihvatanja
-        }
-    });
-
-    // Slušanje ICE kandidata od primaoca
-    onSnapshot(collection(callDocRef, 'recipientCandidates'), snapshot => {
-        snapshot.docChanges().forEach(change => {
-            if (change.type === 'added') {
-                const candidate = new RTCIceCandidate(change.doc.data());
-                pc.addIceCandidate(candidate);
-            }
-        });
     });
 });
 
-function listenForIncomingCalls() {
-    const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('recipient', '==', username));
 
-    onSnapshot(q, snapshot => {
-        snapshot.docChanges().forEach(async change => {
+
+function listenForIncomingCalls() {
+    const callRequestsCollection = collection(db, 'callRequests');
+    const q = query(callRequestsCollection, where('recipient', '==', username), where('status', '==', 'calling'));
+
+    onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const callData = change.doc.data();
                 const callId = change.doc.id;
-                const callDocRef = doc(db, 'calls', callId);
 
                 // Prikazivanje prompta za dolazni poziv
                 const incomingCallPrompt = document.createElement('div');
@@ -982,45 +931,71 @@ function listenForIncomingCalls() {
 
                 // Prihvatanje poziva
                 document.getElementById('accept-call').addEventListener('click', async () => {
-                    // Kreiranje RTC PeerConnection
-                    const pc = new RTCPeerConnection();
-
-                    // Uzimanje mikrofona korisnika
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-                    // Slanje ICE kandidata
-                    pc.onicecandidate = event => {
-                        if (event.candidate) {
-                            addDoc(collection(callDocRef, 'recipientCandidates'), event.candidate.toJSON());
-                        }
-                    };
-
-                    // Postavljanje remote description s offer-om
-                    const offerDescription = new RTCSessionDescription(callData.offer);
-                    await pc.setRemoteDescription(offerDescription);
-
-                    // Kreiranje odgovora (answer)
-                    const answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
-
-                    // Ažuriranje Firestore dokumenta sa answer-om
-                    await updateDoc(callDocRef, { answer: { type: answer.type, sdp: answer.sdp } });
-
-                    // Uklanjanje prompta nakon prihvatanja poziva
-                    document.body.removeChild(incomingCallPrompt);
+                    await updateDoc(doc(db, 'callRequests', callId), { status: 'accepted' });
+                    document.body.removeChild(incomingCallPrompt); // Ukloni prompt nakon prihvatanja
+                    startWebRTCConnection(callData); // Funkcija koja uspostavlja WebRTC vezu
                 });
 
                 // Odbijanje poziva
-                document.getElementById('decline-call').addEventListener('click', () => {
-                    document.body.removeChild(incomingCallPrompt); // Uklanjanje prompta
+                document.getElementById('decline-call').addEventListener('click', async () => {
+                    await updateDoc(doc(db, 'callRequests', callId), { status: 'declined' });
+                    document.body.removeChild(incomingCallPrompt); // Ukloni prompt nakon odbijanja
                 });
             }
         });
     });
 }
 
-listenForIncomingCalls(); // Pozovi ovu funkciju kad korisnik uđe u aplikaciju
+listenForIncomingCalls(); // Aktiviraj slušanje za dolazne pozive kad korisnik uđe u aplikaciju
+
+
+async function startWebRTCConnection(callData) {
+    const pc = new RTCPeerConnection();
+
+    // Pribavljanje audio streama
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    // Slanje ICE kandidata
+    pc.onicecandidate = event => {
+        if (event.candidate) {
+            addDoc(collection(db, 'iceCandidates'), {
+                callId: callData.callId,
+                candidate: event.candidate.toJSON(),
+                sender: username
+            });
+        }
+    };
+
+    // Ako si pozivatelj, kreiraj offer
+    if (callData.caller === username) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await updateDoc(doc(db, 'callRequests', callData.callId), { offer: { type: offer.type, sdp: offer.sdp } });
+    }
+
+    // Ako si primalac, postavi offer kao remote description i kreiraj answer
+    if (callData.recipient === username) {
+        const offerDescription = new RTCSessionDescription(callData.offer);
+        await pc.setRemoteDescription(offerDescription);
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        await updateDoc(doc(db, 'callRequests', callData.callId), { answer: { type: answer.type, sdp: answer.sdp } });
+    }
+
+    // Slušanje ICE kandidata
+    onSnapshot(collection(db, 'iceCandidates'), (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+            const candidateData = change.doc.data();
+            if (candidateData.callId === callData.callId && candidateData.sender !== username) {
+                const candidate = new RTCIceCandidate(candidateData.candidate);
+                pc.addIceCandidate(candidate);
+            }
+        });
+    });
+}
+
 
 
 
