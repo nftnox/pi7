@@ -966,14 +966,15 @@ document.getElementById('start-call').addEventListener('click', async () => {
 
 
 function listenForIncomingCalls() {
-    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Provera korisnika
+    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Log za proveru korisnika
 
     const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('recipient', '==', username)); // Osluškivanje poziva za prijavljenog korisnika
+    const q = query(callsCollection, where('recipient', '==', username)); // Proveri da li je korisnik primalac
 
     onSnapshot(q, (snapshot) => {
-        console.log('Pristigli snapshot:', snapshot.size); // Provera broja dokumenata u snapshotu
+        console.log('Pristigli snapshot:', snapshot.size); // Log za proveru koliko dokumenata je stiglo
         snapshot.docChanges().forEach(async (change) => {
+            console.log('Promena u snapshotu:', change.type); // Log za tip promene (added, modified, removed)
             if (change.type === 'added') {
                 const callData = change.doc.data();
                 console.log('Dolazni poziv od:', callData.caller); // Log za detekciju poziva
@@ -993,7 +994,7 @@ function listenForIncomingCalls() {
 
                 // Prihvatanje poziva
                 document.getElementById('accept-call').addEventListener('click', async () => {
-                    console.log('Poziv prihvaćen od:', callData.caller); // Provera za prihvaćen poziv
+                    console.log('Poziv prihvaćen od:', callData.caller); // Log za prihvaćen poziv
                     await updateDoc(callDocRef, { status: 'accepted' });
                     document.body.removeChild(incomingCallPrompt);
                     
@@ -1003,12 +1004,10 @@ function listenForIncomingCalls() {
 
                 // Odbijanje poziva
                 document.getElementById('decline-call').addEventListener('click', async () => {
-                    console.log('Poziv odbijen od:', callData.caller); // Provera za odbijen poziv
+                    console.log('Poziv odbijen od:', callData.caller); // Log za odbijen poziv
                     await updateDoc(callDocRef, { status: 'declined' });
                     document.body.removeChild(incomingCallPrompt);
                 });
-            } else {
-                console.log('Promena u snapshotu nije `added`:', change.type);
             }
         });
     });
