@@ -898,7 +898,23 @@ function openChatWithUser(userId) {
 
 
       
+const userCollection = collection(db, 'network');
+const querySnapshot = await getDocs(userCollection);
+querySnapshot.forEach(doc => {
+    const userData = doc.data();
+    username = userData.ime; // Dobijanje stvarnog imena korisnika
+
+    console.log('Korisnik prijavljen kao:', username); // Proveri da li je ime postavljeno
+    
+    // Tek nakon što postavimo username, pozivamo funkciju za slušanje poziva
+    listenForIncomingCalls();
+});
+
+
+
+
 document.getElementById('start-call').addEventListener('click', async () => {
+    console.log('Pokretanje poziva od:', username, 'ka:', selectedUserName); // Log za proveru
     const callDoc = await addDoc(collection(db, 'callRequests'), {
         caller: username, // Trenutno logovani korisnik
         recipient: selectedUserName, // Korisnik kojem šaljemo poziv
@@ -914,12 +930,12 @@ document.getElementById('start-call').addEventListener('click', async () => {
     callingPrompt.innerHTML = `<p>Zovete ${selectedUserName}...</p>`;
     document.body.appendChild(callingPrompt);
 
-    // Slušanje promjene statusa poziva (da li je prihvaćen ili odbijen)
+    // Slušaj promjene statusa poziva (da li je prihvaćen ili odbijen)
     onSnapshot(doc(db, 'callRequests', callId), (docSnapshot) => {
         const callData = docSnapshot.data();
         if (callData.status === 'accepted') {
             document.body.removeChild(callingPrompt); // Uklanjamo prompt nakon što korisnik prihvati poziv
-            startWebRTCConnection(callData); // Funkcija koja započinje WebRTC komunikaciju
+            startWebRTCConnection(callData); // Funkcija koja započinje WebRTC komunikaciju (detalji niže)
         } else if (callData.status === 'declined') {
             document.body.removeChild(callingPrompt); // Uklanjanje prompta ako je poziv odbijen
             alert('Poziv je odbijen');
@@ -928,20 +944,21 @@ document.getElementById('start-call').addEventListener('click', async () => {
 });
 
 
-// Funkcija za slušanje dolaznih poziva kada korisnik uđe u aplikaciju
-// Funkcija za slušanje dolaznih poziva kada korisnik uđe u aplikaciju
 function listenForIncomingCalls() {
-    const callRequestsCollection = collection(db, 'callRequests');
+    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Log za proveru
 
-    // Osluškujemo za pozive upućene trenutnom korisniku
-    const q = query(callRequestsCollection, where('recipient', '==', username), where('status', '==', 'calling'));
+    const callsCollection = collection(db, 'calls');
+    const q = query(callsCollection, where('recipient', '==', username));
 
-    // Aktivno slušamo sve promene u pozivima
-    onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach(async (change) => {
+    onSnapshot(q, snapshot => {
+        console.log('Pristigli snapshot:', snapshot.size); // Provera broja dokumenata u snapshotu
+        snapshot.docChanges().forEach(async change => {
             if (change.type === 'added') {
                 const callData = change.doc.data();
+                console.log('Dolazni poziv od:', callData.caller); // Log za detekciju poziva
+
                 const callId = change.doc.id;
+                const callDocRef = doc(db, 'calls', callId);
 
                 // Prikazivanje prompta za dolazni poziv
                 const incomingCallPrompt = document.createElement('div');
@@ -953,18 +970,20 @@ function listenForIncomingCalls() {
                 `;
                 document.body.appendChild(incomingCallPrompt);
 
-                // Ako korisnik prihvati poziv
+                // Prihvatanje poziva
                 document.getElementById('accept-call').addEventListener('click', async () => {
-                    await updateDoc(doc(db, 'callRequests', callId), { status: 'accepted' });
+                    console.log('Poziv prihvaćen od:', callData.caller); // Provera za prihvaćen poziv
+                    await updateDoc(callDocRef, { status: 'accepted' });
                     document.body.removeChild(incomingCallPrompt);
                     
                     // Započni WebRTC poziv nakon prihvatanja
                     startWebRTCConnection(callData);
                 });
 
-                // Ako korisnik odbije poziv
+                // Odbijanje poziva
                 document.getElementById('decline-call').addEventListener('click', async () => {
-                    await updateDoc(doc(db, 'callRequests', callId), { status: 'declined' });
+                    console.log('Poziv odbijen od:', callData.caller); // Provera za odbijen poziv
+                    await updateDoc(callDocRef, { status: 'declined' });
                     document.body.removeChild(incomingCallPrompt);
                 });
             }
@@ -972,17 +991,14 @@ function listenForIncomingCalls() {
     });
 }
 
-// Aktiviraj slušanje poziva čim korisnik uđe u aplikaciju
-listenForIncomingCalls();
-
-
-
 function startWebRTCConnection(callData) {
     const pc = new RTCPeerConnection();
+    console.log('WebRTC konekcija započeta'); // Log za proveru
 
     // Uzimanje mikrofona korisnika
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
+        console.log('Mikrofon uključen'); // Proveri da li radi mikrofon
     });
 
     // Slanje ICE kandidata
@@ -990,6 +1006,7 @@ function startWebRTCConnection(callData) {
         if (event.candidate) {
             const candidatesCollection = collection(db, `calls/${callData.callId}/candidates`);
             addDoc(candidatesCollection, event.candidate.toJSON());
+            console.log('ICE kandidat poslat'); // Proveri da li su kandidati poslati
         }
     };
 
@@ -1000,12 +1017,14 @@ function startWebRTCConnection(callData) {
         }).then((answer) => {
             pc.setLocalDescription(answer);
             updateDoc(doc(db, 'calls', callData.callId), { answer });
+            console.log('Answer kreiran i poslat'); // Proveri da li je answer poslat
         });
     } else {
         pc.createOffer().then((offer) => {
             return pc.setLocalDescription(offer);
         }).then(() => {
             updateDoc(doc(db, 'calls', callData.callId), { offer: pc.localDescription });
+            console.log('Offer kreiran i poslat'); // Proveri da li je offer poslat
         });
     }
 
@@ -1015,12 +1034,11 @@ function startWebRTCConnection(callData) {
             if (change.type === 'added') {
                 const candidate = new RTCIceCandidate(change.doc.data());
                 pc.addIceCandidate(candidate);
+                console.log('ICE kandidat primljen'); // Proveri da li su kandidati primljeni
             }
         });
     });
 }
-
-
 
 
 
