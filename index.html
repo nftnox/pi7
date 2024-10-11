@@ -880,6 +880,7 @@ function openChatWithUser(userId) {
 
 
       
+// Početak funkcije za pokretanje poziva
 document.getElementById('start-call').addEventListener('click', async () => {
     // Kreiraj novi dokument u kolekciji 'calls' sa informacijama o pozivu
     const callDoc = await addDoc(collection(db, 'calls'), {
@@ -934,9 +935,8 @@ document.getElementById('start-call').addEventListener('click', async () => {
         }
     });
 });
-   
 
-
+// Funkcija za slušanje dolaznih poziva
 function listenForIncomingCalls() {
     const callsCollection = collection(db, 'calls');
     const q = query(callsCollection, where('recipient', '==', username));
@@ -974,16 +974,19 @@ function listenForIncomingCalls() {
                         }
                     };
 
-                    // Postavljanje remote description s offer-om
+                    // Postavi remote description s `offer-om` koji si dobio od pozivatelja
                     const offerDescription = new RTCSessionDescription(callData.offer);
                     await pc.setRemoteDescription(offerDescription);
 
-                    // Kreiranje odgovora (answer)
+                    // Kreiraj `answer`
                     const answer = await pc.createAnswer();
                     await pc.setLocalDescription(answer);
 
-                    // Ažuriranje Firestore dokumenta sa answer-om
-                    await updateDoc(callDocRef, { answer: { type: answer.type, sdp: answer.sdp }, status: 'accepted' });
+                    // Ažuriraj Firestore dokument sa `answer-om`
+                    await updateDoc(callDocRef, {
+                        answer: { type: answer.type, sdp: answer.sdp },
+                        status: 'accepted' // Ažuriraj status poziva na "accepted"
+                    });
 
                     // Ukloni prompt nakon prihvatanja
                     document.body.removeChild(incomingCallPrompt);
@@ -999,8 +1002,38 @@ function listenForIncomingCalls() {
     });
 }
 
-
+// Aktivacija slušanja dolaznih poziva kada korisnik uđe u aplikaciju
 listenForIncomingCalls();
+
+// Slušanje za `answer` od primaoca
+onSnapshot(callDocRef, (docSnapshot) => {
+    const callData = docSnapshot.data();
+    if (callData.answer && !pc.currentRemoteDescription) {
+        const answerDescription = new RTCSessionDescription(callData.answer);
+        pc.setRemoteDescription(answerDescription); // Postavi `answer` kao remote description
+        document.body.removeChild(callingPrompt); // Uklanjanje prompta nakon prihvatanja
+    }
+});
+
+// Slušaj za ICE kandidate od primaoca
+onSnapshot(collection(callDocRef, 'recipientCandidates'), (snapshot) => {
+    snapshot.docChanges().forEach(change => {
+        if (change.type === 'added') {
+            const candidate = new RTCIceCandidate(change.doc.data());
+            pc.addIceCandidate(candidate);
+        }
+    });
+});
+
+// Slušaj za ICE kandidate od pozivatelja
+onSnapshot(collection(callDocRef, 'callerCandidates'), (snapshot) => {
+    snapshot.docChanges().forEach(change => {
+        if (change.type === 'added') {
+            const candidate = new RTCIceCandidate(change.doc.data());
+            pc.addIceCandidate(candidate);
+        }
+    });
+});
 
 
 
