@@ -231,6 +231,8 @@ textarea {
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
+                <button id="start-call"><img src="phone-icon.png" alt="Phone Icon"></button>
+
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
                 <button id="send-message">Pošalji</button>
             </div>
@@ -876,6 +878,112 @@ function openChatWithUser(userId) {
 
 
       
+document.getElementById('start-call').addEventListener('click', startCall);
+
+async function startCall() {
+    const callDoc = await addDoc(collection(db, 'calls'), {
+        caller: username,
+        recipient: selectedUserName,
+        offer: null, // Offer will be added later
+        answer: null, // Answer will be added later
+    });
+
+    const callId = callDoc.id;
+    const callDocRef = doc(db, 'calls', callId);
+
+    // Create an RTC PeerConnection
+    const pc = new RTCPeerConnection();
+
+    // Capture user's microphone
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+    // Listen for ICE candidates
+    pc.onicecandidate = event => {
+        if (event.candidate) {
+            addDoc(collection(callDocRef, 'callerCandidates'), event.candidate.toJSON());
+        }
+    };
+
+    // Create offer
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    // Update Firestore with the offer
+    await updateDoc(callDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
+
+    // Listen for answer
+    onSnapshot(callDocRef, snapshot => {
+        const data = snapshot.data();
+        if (!pc.currentRemoteDescription && data.answer) {
+            const answerDescription = new RTCSessionDescription(data.answer);
+            pc.setRemoteDescription(answerDescription);
+        }
+    });
+
+    // Listen for ICE candidates from the recipient
+    onSnapshot(collection(callDocRef, 'recipientCandidates'), snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.addIceCandidate(candidate);
+            }
+        });
+    });
+}
+
+
+function listenForCalls() {
+    const callsCollection = collection(db, 'calls');
+    const q = query(callsCollection, where('recipient', '==', username));
+
+    onSnapshot(q, snapshot => {
+        snapshot.docChanges().forEach(async change => {
+            if (change.type === 'added') {
+                const callData = change.doc.data();
+                const callId = change.doc.id;
+                const callDocRef = doc(db, 'calls', callId);
+
+                // Create an RTC PeerConnection
+                const pc = new RTCPeerConnection();
+
+                // Capture the user's microphone
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+                // Listen for ICE candidates
+                pc.onicecandidate = event => {
+                    if (event.candidate) {
+                        addDoc(collection(callDocRef, 'recipientCandidates'), event.candidate.toJSON());
+                    }
+                };
+
+                // Set the offer from the caller
+                const offerDescription = new RTCSessionDescription(callData.offer);
+                await pc.setRemoteDescription(offerDescription);
+
+                // Create an answer
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+
+                // Update Firestore with the answer
+                await updateDoc(callDocRef, { answer: { type: answer.type, sdp: answer.sdp } });
+
+                // Listen for ICE candidates from the caller
+                onSnapshot(collection(callDocRef, 'callerCandidates'), snapshot => {
+                    snapshot.docChanges().forEach(change => {
+                        if (change.type === 'added') {
+                            const candidate = new RTCIceCandidate(change.doc.data());
+                            pc.addIceCandidate(candidate);
+                        }
+                    });
+                });
+            }
+        });
+    });
+}
+
+listenForCalls(); // Call this when the user logs in
 
 
 
