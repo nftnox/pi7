@@ -959,7 +959,6 @@ document.getElementById('start-call').addEventListener('click', async () => {
     });
 });
 
-// Funkcija za slušanje dolaznih poziva
 function listenForIncomingCalls() {
     const callsCollection = collection(db, 'calls');
     const q = query(callsCollection, where('recipient', '==', username));
@@ -1014,15 +1013,14 @@ function listenForIncomingCalls() {
 
                 // Odbijanje poziva
                 document.getElementById('decline-call').addEventListener('click', () => {
-                    document.body.removeChild(incomingCallPrompt); // Ukloni prompt
+                    document.body.removeChild(incomingCallPrompt); // Uklanjanje prompta
                 });
             }
         });
     });
 }
 
-// Aktiviraj slušanje za dolazne pozive kada korisnik uđe u aplikaciju
-listenForIncomingCalls();
+listenForIncomingCalls(); // Pozovi ovu funkciju kad korisnik uđe u aplikaciju
 
 
 
