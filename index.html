@@ -877,7 +877,8 @@ function openChatWithUser(userId) {
 }
 
 
-      // Početak funkcije za pokretanje poziva
+      
+// Početak funkcije za pokretanje poziva
 document.getElementById('start-call').addEventListener('click', async () => {
     const callDoc = await addDoc(collection(db, 'callRequests'), {
         caller: username, // Trenutno logovani korisnik
@@ -894,7 +895,7 @@ document.getElementById('start-call').addEventListener('click', async () => {
     callingPrompt.innerHTML = `<p>Zovete ${selectedUserName}...</p>`;
     document.body.appendChild(callingPrompt);
 
-    // Logika za prikaz da li korisnik odbija ili prihvata poziv
+    // Slušaj promjene statusa poziva (da li je prihvaćen ili odbijen)
     onSnapshot(doc(db, 'callRequests', callId), (docSnapshot) => {
         const callData = docSnapshot.data();
         if (callData.status === 'accepted') {
@@ -933,7 +934,7 @@ function listenForIncomingCalls() {
                 document.getElementById('accept-call').addEventListener('click', async () => {
                     await updateDoc(doc(db, 'callRequests', callId), { status: 'accepted' });
                     document.body.removeChild(incomingCallPrompt); // Ukloni prompt nakon prihvatanja
-                    startWebRTCConnection(callData); // Funkcija koja uspostavlja WebRTC vezu
+                    startWebRTCConnection(callData); // Funkcija koja uspostavlja WebRTC vezu (detalji u nastavku)
                 });
 
                 // Odbijanje poziva
@@ -947,6 +948,7 @@ function listenForIncomingCalls() {
 }
 
 listenForIncomingCalls(); // Aktiviraj slušanje za dolazne pozive kad korisnik uđe u aplikaciju
+
 
 
 async function startWebRTCConnection(callData) {
@@ -995,7 +997,6 @@ async function startWebRTCConnection(callData) {
         });
     });
 }
-
 
 
 
