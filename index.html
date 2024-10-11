@@ -966,10 +966,10 @@ document.getElementById('start-call').addEventListener('click', async () => {
 
 
 function listenForIncomingCalls() {
-    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Log za proveru
+    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Provera korisnika
 
     const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('recipient', '==', username)); // Proveravamo da li je korisnik primalac
+    const q = query(callsCollection, where('recipient', '==', username)); // Osluškivanje poziva za prijavljenog korisnika
 
     onSnapshot(q, (snapshot) => {
         console.log('Pristigli snapshot:', snapshot.size); // Provera broja dokumenata u snapshotu
@@ -1007,10 +1007,13 @@ function listenForIncomingCalls() {
                     await updateDoc(callDocRef, { status: 'declined' });
                     document.body.removeChild(incomingCallPrompt);
                 });
+            } else {
+                console.log('Promena u snapshotu nije `added`:', change.type);
             }
         });
     });
 }
+
 
 
 function startWebRTCConnection(callData) {
