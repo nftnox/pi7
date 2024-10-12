@@ -966,45 +966,39 @@ document.getElementById('start-call').addEventListener('click', async () => {
 
 
 function listenForIncomingCalls() {
-    console.log('Pokrenuto osluškivanje za dolazne pozive za:', username); // Log za proveru korisnika
+    console.log('Listening for incoming calls for:', username);
 
     const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('recipient', '==', username)); // Proveri da li je korisnik primalac
+    const q = query(callsCollection, where('recipient', '==', username), where('status', '==', 'calling'));
 
     onSnapshot(q, (snapshot) => {
-        console.log('Pristigli snapshot:', snapshot.size); // Log za proveru koliko dokumenata je stiglo
         snapshot.docChanges().forEach(async (change) => {
-            console.log('Promena u snapshotu:', change.type); // Log za tip promene (added, modified, removed)
             if (change.type === 'added') {
                 const callData = change.doc.data();
-                console.log('Dolazni poziv od:', callData.caller); // Log za detekciju poziva
+                console.log('Incoming call from:', callData.caller);
 
                 const callId = change.doc.id;
                 const callDocRef = doc(db, 'calls', callId);
 
-                // Prikazivanje prompta za dolazni poziv
+                // Show incoming call prompt
                 const incomingCallPrompt = document.createElement('div');
                 incomingCallPrompt.classList.add('incoming-call-prompt');
                 incomingCallPrompt.innerHTML = `
-                    <p>${callData.caller} vas zove...</p>
-                    <button id="accept-call">Prihvati</button>
-                    <button id="decline-call">Odbij</button>
+                    <p>${callData.caller} is calling you...</p>
+                    <button id="accept-call">Accept</button>
+                    <button id="decline-call">Decline</button>
                 `;
                 document.body.appendChild(incomingCallPrompt);
 
-                // Prihvatanje poziva
+                // Accept call
                 document.getElementById('accept-call').addEventListener('click', async () => {
-                    console.log('Poziv prihvaćen od:', callData.caller); // Log za prihvaćen poziv
                     await updateDoc(callDocRef, { status: 'accepted' });
                     document.body.removeChild(incomingCallPrompt);
-                    
-                    // Započni WebRTC poziv nakon prihvatanja
-                    startWebRTCConnection(callData);
+                    startWebRTCConnection(callData); // Start the WebRTC connection
                 });
 
-                // Odbijanje poziva
+                // Decline call
                 document.getElementById('decline-call').addEventListener('click', async () => {
-                    console.log('Poziv odbijen od:', callData.caller); // Log za odbijen poziv
                     await updateDoc(callDocRef, { status: 'declined' });
                     document.body.removeChild(incomingCallPrompt);
                 });
@@ -1015,54 +1009,59 @@ function listenForIncomingCalls() {
 
 
 
+
 function startWebRTCConnection(callData) {
     const pc = new RTCPeerConnection();
-    console.log('WebRTC konekcija započeta'); // Log za proveru
+    console.log('Starting WebRTC connection...');
 
-    // Uzimanje mikrofona korisnika
+    // Get the user's microphone
     navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
         stream.getTracks().forEach(track => pc.addTrack(track, stream));
-        console.log('Mikrofon uključen'); // Proveri da li radi mikrofon
+        console.log('Microphone is on.');
     });
 
-    // Slanje ICE kandidata
+    // Handle ICE candidates
     pc.onicecandidate = (event) => {
         if (event.candidate) {
             const candidatesCollection = collection(db, `calls/${callData.callId}/candidates`);
             addDoc(candidatesCollection, event.candidate.toJSON());
-            console.log('ICE kandidat poslat'); // Proveri da li su kandidati poslati
+            console.log('Sent ICE candidate.');
         }
     };
 
-    // Kreiraj i postavi offer za pozivatelja, ili answer za primaoca
+    // If the recipient has accepted the call
     if (callData.status === 'accepted') {
+        // Recipient sets the remote description and sends an answer
         pc.setRemoteDescription(new RTCSessionDescription(callData.offer)).then(() => {
             return pc.createAnswer();
         }).then((answer) => {
             pc.setLocalDescription(answer);
-            updateDoc(doc(db, 'calls', callData.callId), { answer });
-            console.log('Answer kreiran i poslat'); // Proveri da li je answer poslat
+            updateDoc(doc(db, 'calls', callData.callId), { answer: pc.localDescription });
+            console.log('Answer created and sent.');
         });
     } else {
+        // Caller creates and sends an offer
         pc.createOffer().then((offer) => {
             return pc.setLocalDescription(offer);
         }).then(() => {
             updateDoc(doc(db, 'calls', callData.callId), { offer: pc.localDescription });
-            console.log('Offer kreiran i poslat'); // Proveri da li je offer poslat
+            console.log('Offer created and sent.');
         });
     }
 
-    // Slušanje ICE kandidata i postavljanje remote kandidata
-    onSnapshot(collection(db, `calls/${callData.callId}/candidates`), (snapshot) => {
+    // Listen for ICE candidates from the other peer
+    const candidatesCollection = collection(db, `calls/${callData.callId}/candidates`);
+    onSnapshot(candidatesCollection, (snapshot) => {
         snapshot.docChanges().forEach((change) => {
             if (change.type === 'added') {
                 const candidate = new RTCIceCandidate(change.doc.data());
                 pc.addIceCandidate(candidate);
-                console.log('ICE kandidat primljen'); // Proveri da li su kandidati primljeni
+                console.log('Received and added ICE candidate.');
             }
         });
     });
 }
+
 
 
 
