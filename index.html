@@ -187,26 +187,6 @@ textarea {
 
 
 
-.calling-prompt, .incoming-call-prompt {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    padding: 20px;
-    background-color: white;
-    border: 1px solid black;
-    z-index: 1000;
-    text-align: center;
-}
-
-.calling-prompt p, .incoming-call-prompt p {
-    margin-bottom: 15px;
-}
-
-.calling-prompt button, .incoming-call-prompt button {
-    margin: 5px;
-    padding: 10px;
-}
 
 
 
@@ -251,9 +231,6 @@ textarea {
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
-                <button id="start-call">📞</button>
-
-
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
                 <button id="send-message">Pošalji</button>
             </div>
@@ -488,10 +465,7 @@ textarea {
             }
         }
 
-        console.log('Korisnik prijavljen kao:', username); // Proveri da li je ime postavljeno
-    
-    // Tek nakon što postavimo username, pozivamo funkciju za slušanje poziva
-    listenForIncomingCalls();
+        
 
 
 
@@ -901,148 +875,7 @@ function openChatWithUser(userId) {
 }
 
 
-async function startCall() {
-    const callStatus = document.getElementById('call-status');
-    callStatus.innerText = `Zovem ${selectedUserName}...`; // Prikaži status "Zovem"
-
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-    // Postavi događaje za WebRTC
-    peerConnection.ontrack = event => {
-        const remoteAudio = new Audio();
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.play();
-    };
-
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            sendSignalingMessage({
-                type: 'candidate',
-                candidate: event.candidate
-            });
-        }
-    };
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    // Pošalji WebRTC offer preko Firebase-a
-    sendSignalingMessage({
-        type: 'offer',
-        offer: offer
-    });
-}
-
-// Dodaj događaj kada korisnik klikne na telefon
-document.getElementById('start-call').addEventListener('click', startCall);
-
-// Funkcija za slanje signaling poruke putem Firebase-a
-async function sendSignalingMessage(message) {
-    const signalingCollection = collection(db, 'signaling');
-    await addDoc(signalingCollection, {
-        sender: username,
-        recipient: selectedUserName,
-        message: message,
-        timestamp: new Date()
-    });
-}
-
-
-
-function listenForIncomingCalls() {
-    const signalingCollection = collection(db, 'signaling');
-    const q = query(signalingCollection, where('recipient', '==', username), where('message.type', '==', 'offer'));
-
-    onSnapshot(q, (querySnapshot) => {
-        querySnapshot.forEach(doc => {
-            const callRequest = doc.data();
-            if (callRequest.message.type === 'offer') {
-                showIncomingCall(callRequest.sender, callRequest.message.offer);
-            }
-        });
-    });
-}
-
-// Funkcija za prikaz obavještenja o dolaznom pozivu
-function showIncomingCall(callerName, offer) {
-    const callStatus = document.getElementById('call-status');
-    callStatus.innerHTML = `<p>Zove vas ${callerName}</p>
-                            <button id="answer-call">Answer</button>
-                            <button id="decline-call">Decline</button>`;
-
-    // Ako korisnik prihvati poziv
-    document.getElementById('answer-call').addEventListener('click', () => {
-        answerCall(offer);
-    });
-
-    // Ako korisnik odbije poziv
-    document.getElementById('decline-call').addEventListener('click', () => {
-        callStatus.innerHTML = ''; // Obriši status
-    });
-}
-
-// Funkcija za odgovor na poziv
-async function answerCall(offer) {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-    });
-
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-    peerConnection.ontrack = event => {
-        const remoteAudio = new Audio();
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.play();
-    };
-
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-            sendSignalingMessage({
-                type: 'candidate',
-                candidate: event.candidate
-            });
-        }
-    };
-
-    // Postavi ponudu i kreiraj odgovor
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    // Pošalji odgovor putem Firebase-a
-    sendSignalingMessage({
-        type: 'answer',
-        answer: answer
-    });
-
-    const callStatus = document.getElementById('call-status');
-    callStatus.innerText = `U razgovoru sa ${selectedUserName}`;
-}
-
-
-
-function listenForSignalingMessages() {
-    const signalingCollection = collection(db, 'signaling');
-    const q = query(signalingCollection, where('recipient', '==', username));
-
-    onSnapshot(q, (querySnapshot) => {
-        querySnapshot.forEach(doc => {
-            const signalingMessage = doc.data().message;
-            if (signalingMessage.type === 'answer') {
-                peerConnection.setRemoteDescription(new RTCSessionDescription(signalingMessage.answer));
-            } else if (signalingMessage.type === 'candidate') {
-                peerConnection.addIceCandidate(new RTCIceCandidate(signalingMessage.candidate));
-            }
-        });
-    });
-}
-
+      
 
 
 
@@ -1053,10 +886,6 @@ function listenForSignalingMessages() {
             }, 5000);
         };
     </script>
-
-
-<div id="call-status"></div>
-
 
 </body>
 </html>
