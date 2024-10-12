@@ -901,35 +901,47 @@ function openChatWithUser(userId) {
 }
 
 
-let localStream = null;
-let peerConnection = null;
-
 async function startCall() {
+    const callStatus = document.getElementById('call-status');
+    callStatus.innerText = `Zovem ${selectedUserName}...`; // Prikaži status "Zovem"
+
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     peerConnection = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
     });
 
-    // Dodaj lokalni audio stream u peerConnection
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-    // Prikaz dolaznog zvuka
-    peerConnection.ontrack = (event) => {
+    // Postavi događaje za WebRTC
+    peerConnection.ontrack = event => {
         const remoteAudio = new Audio();
         remoteAudio.srcObject = event.streams[0];
         remoteAudio.play();
     };
 
-    // Kreiraj WebRTC offer i pošalji ga preko Firebase-a
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+            sendSignalingMessage({
+                type: 'candidate',
+                candidate: event.candidate
+            });
+        }
+    };
+
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
+
+    // Pošalji WebRTC offer preko Firebase-a
     sendSignalingMessage({
         type: 'offer',
         offer: offer
     });
 }
 
-// Pošalji poruku putem Firebase-a za WebRTC signaling
+// Dodaj događaj kada korisnik klikne na telefon
+document.getElementById('start-call').addEventListener('click', startCall);
+
+// Funkcija za slanje signaling poruke putem Firebase-a
 async function sendSignalingMessage(message) {
     const signalingCollection = collection(db, 'signaling');
     await addDoc(signalingCollection, {
@@ -940,12 +952,9 @@ async function sendSignalingMessage(message) {
     });
 }
 
-// Poveži dugme za početak poziva
-document.getElementById('start-call').addEventListener('click', startCall);
 
 
 function listenForIncomingCalls() {
-    // Osluškuj dolazne pozive putem Firebase-a
     const signalingCollection = collection(db, 'signaling');
     const q = query(signalingCollection, where('recipient', '==', username), where('message.type', '==', 'offer'));
 
@@ -953,10 +962,82 @@ function listenForIncomingCalls() {
         querySnapshot.forEach(doc => {
             const callRequest = doc.data();
             if (callRequest.message.type === 'offer') {
-                const acceptCall = confirm(`${callRequest.sender} vas zove. Prihvatate li poziv?`);
-                if (acceptCall) {
-                    handleSignalingMessage(callRequest.message);
-                }
+                showIncomingCall(callRequest.sender, callRequest.message.offer);
+            }
+        });
+    });
+}
+
+// Funkcija za prikaz obavještenja o dolaznom pozivu
+function showIncomingCall(callerName, offer) {
+    const callStatus = document.getElementById('call-status');
+    callStatus.innerHTML = `<p>Zove vas ${callerName}</p>
+                            <button id="answer-call">Answer</button>
+                            <button id="decline-call">Decline</button>`;
+
+    // Ako korisnik prihvati poziv
+    document.getElementById('answer-call').addEventListener('click', () => {
+        answerCall(offer);
+    });
+
+    // Ako korisnik odbije poziv
+    document.getElementById('decline-call').addEventListener('click', () => {
+        callStatus.innerHTML = ''; // Obriši status
+    });
+}
+
+// Funkcija za odgovor na poziv
+async function answerCall(offer) {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+    peerConnection.ontrack = event => {
+        const remoteAudio = new Audio();
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play();
+    };
+
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+            sendSignalingMessage({
+                type: 'candidate',
+                candidate: event.candidate
+            });
+        }
+    };
+
+    // Postavi ponudu i kreiraj odgovor
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    // Pošalji odgovor putem Firebase-a
+    sendSignalingMessage({
+        type: 'answer',
+        answer: answer
+    });
+
+    const callStatus = document.getElementById('call-status');
+    callStatus.innerText = `U razgovoru sa ${selectedUserName}`;
+}
+
+
+
+function listenForSignalingMessages() {
+    const signalingCollection = collection(db, 'signaling');
+    const q = query(signalingCollection, where('recipient', '==', username));
+
+    onSnapshot(q, (querySnapshot) => {
+        querySnapshot.forEach(doc => {
+            const signalingMessage = doc.data().message;
+            if (signalingMessage.type === 'answer') {
+                peerConnection.setRemoteDescription(new RTCSessionDescription(signalingMessage.answer));
+            } else if (signalingMessage.type === 'candidate') {
+                peerConnection.addIceCandidate(new RTCIceCandidate(signalingMessage.candidate));
             }
         });
     });
@@ -972,6 +1053,10 @@ function listenForIncomingCalls() {
             }, 5000);
         };
     </script>
+
+
+<div id="call-status"></div>
+
 
 </body>
 </html>
