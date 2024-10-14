@@ -903,7 +903,7 @@ async function startCall(userId, userName) {
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
-        recipientId: userId,  // Osiguraj da šalješ poziv samo ciljanom korisniku
+        recipientId: userId,
         recipientName: userName,
         answered: false,
         ongoing: true,
@@ -912,16 +912,6 @@ async function startCall(userId, userName) {
 
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
-
-    // Zahtev za pristup mikrofonu i kameri
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-    // Dodaj lokalni video
-    const localVideo = document.createElement('video');
-    localVideo.srcObject = stream;
-    localVideo.autoplay = true;
-    localVideo.muted = true; // Isključi zvuk lokalnog videa
-    document.body.appendChild(localVideo);
 }
 
 // Prikazuje obaveštenje da korisnik zove
@@ -983,6 +973,13 @@ async function acceptCall(callId) {
     // Zahtev za pristup mikrofonu i kameri
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+    // Dodaj lokalni video
+    const localVideo = document.createElement('video');
+    localVideo.srcObject = stream;
+    localVideo.autoplay = true;
+    localVideo.muted = true; // Isključi zvuk lokalnog videa
+    document.body.appendChild(localVideo); // Prikaz lokalnog videa
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
