@@ -881,84 +881,144 @@ document.getElementById('start-call').addEventListener('click', () => {
     startCall(selectedUserId, selectedUserName);
 });
 
-
 async function startCall(userId, userName) {
-    // Pošalji obaveštenje o pozivu u kolekciju 'calls'
     const callRef = collection(db, 'calls');
-    await addDoc(callRef, {
+    const callDoc = await addDoc(callRef, {
         caller: username,
         recipientId: userId,
         recipientName: userName,
         answered: false,
-        ongoing: true, // Dodajemo status poziva
+        ongoing: true,
         timestamp: new Date()
     });
 
+    showCallNotification(username, callDoc.id);
     console.log(`Poziv upućen korisniku ${userName}.`);
 }
 
-
 function showCallNotification(callerName, callId) {
     const callNotification = document.createElement('div');
-    callNotification.classList.add('call-notification'); // Dodaj klasu za stilizaciju
+    callNotification.classList.add('call-notification');
 
-    // Prikazujemo odgovarajuću poruku
     callNotification.innerHTML = `
         <p>Zove te ${callerName}</p>
         <button id="answer-call-${callId}">Answer</button>
         <button id="decline-call-${callId}">Not Answer</button>
     `;
 
-    // Dodaj obaveštenje u chat prozor
     document.getElementById('messages').appendChild(callNotification);
 
-    // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
-        acceptCall(callId); // Uspostavi vezu
-        document.getElementById('messages').removeChild(callNotification); // Ukloni obaveštenje
+        acceptCall(callId);
+        document.getElementById('messages').removeChild(callNotification);
     });
 
-    // Događaj za odbijanje poziva
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.getElementById('messages').removeChild(callNotification); // Ukloni obaveštenje
+        document.getElementById('messages').removeChild(callNotification);
     });
 }
-
 
 async function acceptCall(callId) {
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
 
-    // Inicijalizuj WebRTC
     const peerConnection = new RTCPeerConnection(configuration);
-
-    // Dodaj lokalni audio stream
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    // Poveži se sa korisnikom koji je uputio poziv
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
             // Pošalji kandidata drugom korisniku
+            sendIceCandidate(event.candidate, callId);
         }
     };
 
-    // Kada je veza uspostavljena, prenesi stream
     peerConnection.ontrack = event => {
-        const remoteAudio = document.createElement('audio');
+        const remoteAudio = new Audio();
         remoteAudio.srcObject = event.streams[0];
         remoteAudio.play();
     };
 
+    // Kreiraj ponudu (offer)
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    // Pošalji ponudu drugom korisniku
+    sendOffer(offer, callId);
+
     console.log("Poziv uspostavljen.");
 }
 
-
-function showCallInProgress(callerName) {
-    const callInProgress = document.createElement('div');
-    callInProgress.innerText = `Poziv u toku sa ${callerName}`;
-    document.getElementById('messages').appendChild(callInProgress);
+// Funkcija za slanje ICE kandidata
+function sendIceCandidate(candidate, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        candidates: arrayUnion(candidate.toJSON())
+    });
 }
+
+// Funkcija za slanje ponude
+function sendOffer(offer, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        offer: offer
+    });
+}
+
+// Funkcija za primanje ICE kandidata
+async function receiveIceCandidates(callId) {
+    const callRef = doc(db, 'calls', callId);
+    onSnapshot(callRef, (doc) => {
+        const data = doc.data();
+        if (data.candidates) {
+            data.candidates.forEach(candidate => {
+                const iceCandidate = new RTCIceCandidate(candidate);
+                peerConnection.addIceCandidate(iceCandidate);
+            });
+        }
+    });
+}
+
+// Funkcija za primanje ponude
+async function receiveOffer(callId) {
+    const callRef = doc(db, 'calls', callId);
+    onSnapshot(callRef, async (doc) => {
+        const data = doc.data();
+        if (data.offer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            sendAnswer(answer, callId);
+        }
+    });
+}
+
+// Funkcija za slanje odgovora
+function sendAnswer(answer, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        answer: answer
+    });
+}
+
+// Funkcija za primanje odgovora
+async function receiveAnswer(callId) {
+    const callRef = doc(db, 'calls', callId);
+    onSnapshot(callRef, async (doc) => {
+        const data = doc.data();
+        if (data.answer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
+    });
+}
+
+// Inicijalizuj poziv i poveži funkcije
+async function initializeCall(callId) {
+    receiveIceCandidates(callId);
+    receiveOffer(callId);
+    receiveAnswer(callId);
+}
+
 
 
 
