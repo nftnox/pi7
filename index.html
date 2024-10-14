@@ -884,7 +884,7 @@ document.getElementById('start-call').addEventListener('click', () => {
 async function startCall(userId, userName) {
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
-        caller: username,
+        caller: username,  // Ime osobe koja zove
         recipientId: userId,
         recipientName: userName,
         answered: false,
@@ -892,16 +892,18 @@ async function startCall(userId, userName) {
         timestamp: new Date()
     });
 
-    showCallNotification(username, callDoc.id);
+    // Prikaz obaveštenja za korisnika koji poziva
+    showCallNotification(username, userName, callDoc.id);
     console.log(`Poziv upućen korisniku ${userName}.`);
 }
 
-function showCallNotification(callerName, callId) {
+function showCallNotification(callerName, recipientName, callId) {
     const callNotification = document.createElement('div');
     callNotification.classList.add('call-notification');
 
+    // Obaveštenje za poziv
     callNotification.innerHTML = `
-        <p>Zove te ${callerName}</p>
+        <p>Zoveš ${recipientName}</p>
         <button id="answer-call-${callId}">Answer</button>
         <button id="decline-call-${callId}">Not Answer</button>
     `;
@@ -928,7 +930,6 @@ async function acceptCall(callId) {
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            // Pošalji kandidata drugom korisniku
             sendIceCandidate(event.candidate, callId);
         }
     };
@@ -939,17 +940,14 @@ async function acceptCall(callId) {
         remoteAudio.play();
     };
 
-    // Kreiraj ponudu (offer)
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-
-    // Pošalji ponudu drugom korisniku
     sendOffer(offer, callId);
 
     console.log("Poziv uspostavljen.");
 }
 
-// Funkcija za slanje ICE kandidata
+// Slanje ICE kandidata
 function sendIceCandidate(candidate, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
@@ -957,7 +955,7 @@ function sendIceCandidate(candidate, callId) {
     });
 }
 
-// Funkcija za slanje ponude
+// Slanje ponude
 function sendOffer(offer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
@@ -965,7 +963,7 @@ function sendOffer(offer, callId) {
     });
 }
 
-// Funkcija za primanje ICE kandidata
+// Prijem ICE kandidata
 async function receiveIceCandidates(callId) {
     const callRef = doc(db, 'calls', callId);
     onSnapshot(callRef, (doc) => {
@@ -979,7 +977,7 @@ async function receiveIceCandidates(callId) {
     });
 }
 
-// Funkcija za primanje ponude
+// Prijem ponude
 async function receiveOffer(callId) {
     const callRef = doc(db, 'calls', callId);
     onSnapshot(callRef, async (doc) => {
@@ -993,7 +991,7 @@ async function receiveOffer(callId) {
     });
 }
 
-// Funkcija za slanje odgovora
+// Slanje odgovora
 function sendAnswer(answer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
@@ -1001,7 +999,7 @@ function sendAnswer(answer, callId) {
     });
 }
 
-// Funkcija za primanje odgovora
+// Prijem odgovora
 async function receiveAnswer(callId) {
     const callRef = doc(db, 'calls', callId);
     onSnapshot(callRef, async (doc) => {
@@ -1012,7 +1010,7 @@ async function receiveAnswer(callId) {
     });
 }
 
-// Inicijalizuj poziv i poveži funkcije
+// Inicijalizacija poziva
 async function initializeCall(callId) {
     receiveIceCandidates(callId);
     receiveOffer(callId);
