@@ -928,6 +928,9 @@ function addLocalVideo(stream) {
     localVideo.muted = true; // Da ne čuje sebe
     localVideo.style.width = '300px';
     localVideo.style.border = '1px solid black';
+    localVideo.style.position = 'absolute';
+    localVideo.style.top = '10px';
+    localVideo.style.left = '10px';
     document.body.appendChild(localVideo);
 }
 
@@ -1008,6 +1011,9 @@ async function acceptCall(callId, stream) {
             remoteVideo.autoplay = true;
             remoteVideo.style.width = '300px';
             remoteVideo.style.border = '1px solid black';
+            remoteVideo.style.position = 'absolute';
+            remoteVideo.style.top = '10px';
+            remoteVideo.style.right = '10px';
             document.body.appendChild(remoteVideo);
         }
         remoteVideo.srcObject = event.streams[0]; // Poveži remote video sa strimom
