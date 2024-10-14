@@ -892,31 +892,46 @@ async function startCall(userId, userName) {
         timestamp: new Date()
     });
 
-    // Prikaz obaveštenja za korisnika koji poziva
-    showCallNotification(username, userName, callDoc.id);
+    // Prikaz obaveštenja za osobu koja zove
+    showCallingNotification(username, userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 }
 
-function showCallNotification(callerName, recipientName, callId) {
-    const callNotification = document.createElement('div');
-    callNotification.classList.add('call-notification');
+function showCallingNotification(callerName, recipientName) {
+    const callingNotification = document.createElement('div');
+    callingNotification.classList.add('call-notification');
 
     // Obaveštenje za poziv
-    callNotification.innerHTML = `
+    callingNotification.innerHTML = `
         <p>Zoveš ${recipientName}</p>
+    `;
+
+    document.getElementById('messages').appendChild(callingNotification);
+}
+
+// Prikaz obaveštenja o pozivu za osobu koja prima poziv
+function showIncomingCallNotification(callerName, callId) {
+    const incomingCallNotification = document.createElement('div');
+    incomingCallNotification.classList.add('call-notification');
+
+    // Obaveštenje za primanje poziva
+    incomingCallNotification.innerHTML = `
+        <p>Zove vas ${callerName}</p>
         <button id="answer-call-${callId}">Answer</button>
         <button id="decline-call-${callId}">Not Answer</button>
     `;
 
-    document.getElementById('messages').appendChild(callNotification);
+    document.getElementById('messages').appendChild(incomingCallNotification);
 
+    // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
         acceptCall(callId);
-        document.getElementById('messages').removeChild(callNotification);
+        document.getElementById('messages').removeChild(incomingCallNotification);
     });
 
+    // Događaj za odbijanje poziva
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.getElementById('messages').removeChild(callNotification);
+        document.getElementById('messages').removeChild(incomingCallNotification);
     });
 }
 
@@ -1016,6 +1031,22 @@ async function initializeCall(callId) {
     receiveOffer(callId);
     receiveAnswer(callId);
 }
+
+// U ovoj funkciji, poziv se inicijalizuje
+function setupIncomingCallListener() {
+    const callRef = collection(db, 'calls');
+    onSnapshot(callRef, (snapshot) => {
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.answered && data.recipientId === currentUserId) {
+                showIncomingCallNotification(data.caller, doc.id);
+            }
+        });
+    });
+}
+
+// Poziv funkcije za slušanje dolaznih poziva
+setupIncomingCallListener();
 
 
 
