@@ -231,6 +231,8 @@ textarea {
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
+                <button id="start-call">📞</button> <!-- Dugme za započinjanje poziva -->
+
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
                 <button id="send-message">Pošalji</button>
             </div>
@@ -875,7 +877,81 @@ function openChatWithUser(userId) {
 }
 
 
-      
+document.getElementById('start-call').addEventListener('click', () => {
+    startCall(selectedUserId, selectedUserName);
+});
+
+
+async function startCall(userId, userName) {
+    // Pošalji obaveštenje o pozivu u kolekciju 'calls'
+    const callRef = collection(db, 'calls');
+    await addDoc(callRef, {
+        caller: username,
+        recipientId: userId,
+        recipientName: userName,
+        answered: false,
+        timestamp: new Date()
+    });
+
+    console.log(`Poziv upućen korisniku ${userName}.`);
+}
+
+
+listenForCalls();
+
+function listenForCalls() {
+    const callsCollection = collection(db, 'calls');
+    onSnapshot(callsCollection, (snapshot) => {
+        snapshot.forEach(doc => {
+            const callData = doc.data();
+            if (callData.recipientId === username && !callData.answered) {
+                showCallNotification(callData.caller, doc.id); // Prikaz obaveštenja o pozivu
+            }
+        });
+    });
+}
+
+function showCallNotification(callerName, callId) {
+    // Prikaz obaveštenja o pozivu
+    const callNotification = document.createElement('div');
+    callNotification.innerHTML = `
+        <p>Zove te ${callerName}</p>
+        <button id="answer-call-${callId}">Answer</button>
+        <button id="decline-call-${callId}">Not Answer</button>
+    `;
+    document.body.appendChild(callNotification);
+
+    // Događaj za prihvatanje poziva
+    document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
+        acceptCall(callId); // Uspostavi vezu
+        document.body.removeChild(callNotification); // Ukloni obaveštenje
+    });
+
+    // Događaj za odbijanje poziva
+    document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
+        document.body.removeChild(callNotification); // Ukloni obaveštenje
+    });
+}
+
+
+async function acceptCall(callId) {
+    // Ukloni poziv iz baze podataka
+    const callRef = doc(db, 'calls', callId);
+    await updateDoc(callRef, { answered: true });
+
+    // Inicijalizuj WebRTC
+    const peerConnection = new RTCPeerConnection(configuration);
+
+    // Dodaj lokalni audio stream
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+    // Logika za uspostavljanje veze (signalizacija)
+    // Ovo može uključivati slanje i primanje ponuda i odgovora (offer/answer)
+
+    console.log("Poziv uspostavljen.");
+}
+
 
 
 
