@@ -916,7 +916,7 @@ async function startCall(userId, userName, stream) {
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 
-    // Dodaj lokalni video
+    // Dodaj lokalni video samo ako je to poziv
     addLocalVideo(stream);
 }
 
