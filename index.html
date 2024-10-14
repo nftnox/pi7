@@ -890,6 +890,7 @@ async function startCall(userId, userName) {
         recipientId: userId,
         recipientName: userName,
         answered: false,
+        ongoing: true, // Dodajemo status poziva
         timestamp: new Date()
     });
 
@@ -897,45 +898,34 @@ async function startCall(userId, userName) {
 }
 
 
-listenForCalls();
-
-function listenForCalls() {
-    const callsCollection = collection(db, 'calls');
-    onSnapshot(callsCollection, (snapshot) => {
-        snapshot.forEach(doc => {
-            const callData = doc.data();
-            if (callData.recipientId === username && !callData.answered) {
-                showCallNotification(callData.caller, doc.id); // Prikaz obaveštenja o pozivu
-            }
-        });
-    });
-}
-
 function showCallNotification(callerName, callId) {
-    // Prikaz obaveštenja o pozivu
     const callNotification = document.createElement('div');
+    callNotification.classList.add('call-notification'); // Dodaj klasu za stilizaciju
+
+    // Prikazujemo odgovarajuću poruku
     callNotification.innerHTML = `
         <p>Zove te ${callerName}</p>
         <button id="answer-call-${callId}">Answer</button>
         <button id="decline-call-${callId}">Not Answer</button>
     `;
-    document.body.appendChild(callNotification);
+
+    // Dodaj obaveštenje u chat prozor
+    document.getElementById('messages').appendChild(callNotification);
 
     // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
         acceptCall(callId); // Uspostavi vezu
-        document.body.removeChild(callNotification); // Ukloni obaveštenje
+        document.getElementById('messages').removeChild(callNotification); // Ukloni obaveštenje
     });
 
     // Događaj za odbijanje poziva
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.body.removeChild(callNotification); // Ukloni obaveštenje
+        document.getElementById('messages').removeChild(callNotification); // Ukloni obaveštenje
     });
 }
 
 
 async function acceptCall(callId) {
-    // Ukloni poziv iz baze podataka
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
 
@@ -946,10 +936,28 @@ async function acceptCall(callId) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    // Logika za uspostavljanje veze (signalizacija)
-    // Ovo može uključivati slanje i primanje ponuda i odgovora (offer/answer)
+    // Poveži se sa korisnikom koji je uputio poziv
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+            // Pošalji kandidata drugom korisniku
+        }
+    };
+
+    // Kada je veza uspostavljena, prenesi stream
+    peerConnection.ontrack = event => {
+        const remoteAudio = document.createElement('audio');
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play();
+    };
 
     console.log("Poziv uspostavljen.");
+}
+
+
+function showCallInProgress(callerName) {
+    const callInProgress = document.createElement('div');
+    callInProgress.innerText = `Poziv u toku sa ${callerName}`;
+    document.getElementById('messages').appendChild(callInProgress);
 }
 
 
