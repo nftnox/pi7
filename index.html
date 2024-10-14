@@ -981,15 +981,6 @@ async function acceptCall(callId) {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const peerConnection = new RTCPeerConnection(configuration);
 
-    // Dodaj lokalni video
-    const localVideo = document.createElement('video');
-    localVideo.srcObject = stream;
-    localVideo.autoplay = true;
-    localVideo.muted = true; // Da ne čuje sebe
-    localVideo.style.width = '300px';
-    localVideo.style.border = '1px solid black';
-    document.body.appendChild(localVideo);
-
     // Dodaj video trackove u peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
