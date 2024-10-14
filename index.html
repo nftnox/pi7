@@ -894,12 +894,15 @@ const configuration = {
 };
 
 // Kada korisnik klikne na dugme za poziv
-document.getElementById('start-call').addEventListener('click', () => {
-    startCall(selectedUserId, selectedUserName);
+document.getElementById('start-call').addEventListener('click', async () => {
+    await startCall(selectedUserId, selectedUserName);
 });
 
 // Funkcija za započinjanje poziva
 async function startCall(userId, userName) {
+    // Zahtev za pristup mikrofonu i kameri
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
@@ -912,6 +915,12 @@ async function startCall(userId, userName) {
 
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
+
+    // Dodaj lokalni video
+    const localVideo = document.createElement('video');
+    localVideo.srcObject = stream;
+    localVideo.autoplay = true;
+    document.body.appendChild(localVideo);
 }
 
 // Prikazuje obaveštenje da korisnik zove
@@ -952,8 +961,8 @@ function showIncomingCallNotification(callerName, callId) {
     document.body.appendChild(incomingCallNotification);
 
     // Događaj za prihvatanje poziva
-    document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
-        acceptCall(callId);
+    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+        await acceptCall(callId);
         document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
     });
 
@@ -969,6 +978,8 @@ async function acceptCall(callId) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
+    
+    // Zahtev za pristup mikrofonu i kameri
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
