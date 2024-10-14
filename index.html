@@ -894,7 +894,7 @@ const configuration = {
 
 // Kada korisnik klikne na dugme za poziv
 document.getElementById('start-call').addEventListener('click', async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Pristup za pozivaoca
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     await startCall(selectedUserId, selectedUserName, stream);
 });
 
@@ -918,6 +918,8 @@ async function startCall(userId, userName, stream) {
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
     localVideo.muted = true; // Da ne čuje sebe
+    localVideo.style.width = '300px';
+    localVideo.style.border = '1px solid black';
     document.body.appendChild(localVideo);
 }
 
@@ -978,12 +980,14 @@ async function acceptCall(callId) {
     // Zahtev za pristup mikrofonu i kameri za primaoca
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const peerConnection = new RTCPeerConnection(configuration);
-    
+
     // Dodaj lokalni video
     const localVideo = document.createElement('video');
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
     localVideo.muted = true; // Da ne čuje sebe
+    localVideo.style.width = '300px';
+    localVideo.style.border = '1px solid black';
     document.body.appendChild(localVideo);
 
     // Dodaj video trackove u peer connection
@@ -996,10 +1000,17 @@ async function acceptCall(callId) {
     };
 
     peerConnection.ontrack = event => {
-        const remoteVideo = document.createElement('video');
-        remoteVideo.srcObject = event.streams[0];
-        remoteVideo.autoplay = true;
-        document.body.appendChild(remoteVideo); // Prikaz video poziva
+        // Proveri da li je remote video već kreiran
+        let remoteVideo = document.getElementById('remoteVideo');
+        if (!remoteVideo) {
+            remoteVideo = document.createElement('video');
+            remoteVideo.id = 'remoteVideo';
+            remoteVideo.autoplay = true;
+            remoteVideo.style.width = '300px';
+            remoteVideo.style.border = '1px solid black';
+            document.body.appendChild(remoteVideo); // Prikaz video poziva
+        }
+        remoteVideo.srcObject = event.streams[0]; // Poveži remote video sa strimom
     };
 
     // Postavi ICE kandidate
