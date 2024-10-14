@@ -986,7 +986,10 @@ async function acceptCall(callId, stream) {
     const peerConnection = new RTCPeerConnection(configuration);
 
     // Dodaj video trackove u peer connection
-    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+    stream.getTracks().forEach(track => {
+        console.log(`Dodajem track: ${track.kind}`); // Log za praćenje
+        peerConnection.addTrack(track, stream);
+    });
 
     // Kreiraj i dodaj lokalni video
     addLocalVideo(stream);
@@ -1008,6 +1011,7 @@ async function acceptCall(callId, stream) {
             document.body.appendChild(remoteVideo);
         }
         remoteVideo.srcObject = event.streams[0]; // Poveži remote video sa strimom
+        console.log("Remote stream je povezan."); // Log za praćenje
     };
 
     // Postavi ICE kandidate
