@@ -240,7 +240,9 @@ textarea {
         </div>
     </div>
     
-    
+    <video id="localVideo" autoplay muted style="width: 300px; border: 1px solid black;"></video>
+<video id="remoteVideo" autoplay style="width: 300px; border: 1px solid black;"></video>
+
 
     
     <script>
@@ -958,8 +960,12 @@ async function acceptCall(callId) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+    // Prikaz lokalnog videa
+    const localVideo = document.getElementById('localVideo');
+    localVideo.srcObject = stream;
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
@@ -968,9 +974,8 @@ async function acceptCall(callId) {
     };
 
     peerConnection.ontrack = event => {
-        const remoteAudio = new Audio();
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.play();
+        const remoteVideo = document.getElementById('remoteVideo');
+        remoteVideo.srcObject = event.streams[0];
     };
 
     // Postavi ICE kandidate
