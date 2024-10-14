@@ -915,6 +915,29 @@ async function startCall(userId, userName, stream) {
 
     // Dodaj lokalni video
     addLocalVideo(stream);
+
+    // Kreiraj peer connection i dodaj stream
+    const peerConnection = new RTCPeerConnection(configuration);
+    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+    // Postavi ICE kandidate
+    setupIceCandidateListener(callDoc.id, peerConnection);
+
+    peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+            sendIceCandidate(event.candidate, callDoc.id);
+        }
+    };
+
+    // Kada primi remote stream
+    peerConnection.ontrack = event => {
+        addRemoteVideo(event.streams[0]);
+    };
+
+    // Kreiraj ponudu
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    sendOffer(offer, callDoc.id);
 }
 
 // Funkcija za dodavanje lokalnog videa
@@ -926,6 +949,20 @@ function addLocalVideo(stream) {
     localVideo.style.width = '300px';
     localVideo.style.border = '1px solid black';
     document.body.appendChild(localVideo);
+}
+
+// Funkcija za dodavanje udaljenog videa
+function addRemoteVideo(remoteStream) {
+    let remoteVideo = document.getElementById('remoteVideo');
+    if (!remoteVideo) {
+        remoteVideo = document.createElement('video');
+        remoteVideo.id = 'remoteVideo';
+        remoteVideo.autoplay = true;
+        remoteVideo.style.width = '300px';
+        remoteVideo.style.border = '1px solid black';
+        document.body.appendChild(remoteVideo);
+    }
+    remoteVideo.srcObject = remoteStream; // Poveži remote video sa strimom
 }
 
 // Prikazuje obaveštenje da korisnik zove
@@ -984,11 +1021,8 @@ async function acceptCall(callId, stream) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
-
-    // Dodaj video trackove u peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    // Kreiraj i dodaj lokalni video
     addLocalVideo(stream);
 
     peerConnection.onicecandidate = event => {
@@ -998,16 +1032,7 @@ async function acceptCall(callId, stream) {
     };
 
     peerConnection.ontrack = event => {
-        let remoteVideo = document.getElementById('remoteVideo');
-        if (!remoteVideo) {
-            remoteVideo = document.createElement('video');
-            remoteVideo.id = 'remoteVideo';
-            remoteVideo.autoplay = true;
-            remoteVideo.style.width = '300px';
-            remoteVideo.style.border = '1px solid black';
-            document.body.appendChild(remoteVideo);
-        }
-        remoteVideo.srcObject = event.streams[0]; // Poveži remote video sa strimom
+        addRemoteVideo(event.streams[0]);
     };
 
     // Postavi ICE kandidate
@@ -1029,6 +1054,13 @@ function sendIceCandidate(candidate, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
         candidates: arrayUnion(candidate.toJSON())
+    });
+}
+
+function sendOffer(offer, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        offer: offer
     });
 }
 
@@ -1067,6 +1099,7 @@ function setupIceCandidateListener(callId, peerConnection) {
 
 // Inicijalizuj praćenje dolaznih poziva
 setupIncomingCallListener();
+
 
 
 
