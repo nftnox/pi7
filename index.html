@@ -884,7 +884,6 @@ document.getElementById('start-call').addEventListener('click', () => {
 
 // Funkcija za započinjanje poziva
 async function startCall(userId, userName) {
-    // Pošalji obaveštenje o pozivu u kolekciju 'calls'
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
@@ -895,7 +894,6 @@ async function startCall(userId, userName) {
         timestamp: new Date()
     });
 
-    // Prikazivanje obaveštenja da korisnik zove
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 }
@@ -905,30 +903,48 @@ function showCallingNotification(recipientName) {
     const callingNotification = document.createElement('div');
     callingNotification.classList.add('call-notification');
     callingNotification.innerHTML = `<p>Zoveš ${recipientName}</p>`;
-    document.getElementById('messages').appendChild(callingNotification);
+    callingNotification.style.position = 'absolute';
+    callingNotification.style.top = '20px';
+    callingNotification.style.right = '20px';
+    callingNotification.style.backgroundColor = '#ffcc00';
+    callingNotification.style.padding = '10px';
+    callingNotification.style.borderRadius = '5px';
+    document.body.appendChild(callingNotification);
 }
 
-// Funkcija za prikazivanje obaveštenja o dolaznom pozivu
+// Funkcija za prikazivanje dolaznog poziva
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallNotification = document.createElement('div');
     incomingCallNotification.classList.add('call-notification');
     incomingCallNotification.innerHTML = `
-        <p>Zove vas ${callerName}</p>
-        <button id="answer-call-${callId}">Answer</button>
-        <button id="decline-call-${callId}">Not Answer</button>
+        <div class="call-popup">
+            <p>Zove vas ${callerName}</p>
+            <button id="answer-call-${callId}">Answer</button>
+            <button id="decline-call-${callId}">Not Answer</button>
+        </div>
     `;
 
-    document.getElementById('messages').appendChild(incomingCallNotification);
+    // Stilizovanje iskačućeg obaveštenja
+    incomingCallNotification.style.position = 'fixed';
+    incomingCallNotification.style.top = '20px';
+    incomingCallNotification.style.left = '50%';
+    incomingCallNotification.style.transform = 'translateX(-50%)';
+    incomingCallNotification.style.backgroundColor = '#ffcc00';
+    incomingCallNotification.style.padding = '20px';
+    incomingCallNotification.style.borderRadius = '5px';
+    incomingCallNotification.style.zIndex = '1000'; // Osiguraj da je iznad ostalog sadržaja
+
+    document.body.appendChild(incomingCallNotification);
 
     // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', () => {
         acceptCall(callId);
-        document.getElementById('messages').removeChild(incomingCallNotification);
+        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
     });
 
     // Događaj za odbijanje poziva
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.getElementById('messages').removeChild(incomingCallNotification);
+        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
     });
 }
 
@@ -944,7 +960,6 @@ async function acceptCall(callId) {
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            // Pošalji kandidata drugom korisniku
             sendIceCandidate(event.candidate, callId);
         }
     };
@@ -962,7 +977,7 @@ async function acceptCall(callId) {
     console.log("Poziv uspostavljen.");
 }
 
-// Funkcija za slanje ICE kandidata
+// Funkcije za slanje ICE kandidata i ponude
 function sendIceCandidate(candidate, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
@@ -970,7 +985,6 @@ function sendIceCandidate(candidate, callId) {
     });
 }
 
-// Funkcija za slanje ponude
 function sendOffer(offer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
@@ -978,7 +992,7 @@ function sendOffer(offer, callId) {
     });
 }
 
-// Funkcija za praćenje dolaznih poziva
+// Praćenje dolaznih poziva
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
     onSnapshot(callRef, (snapshot) => {
