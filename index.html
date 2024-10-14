@@ -900,13 +900,10 @@ document.getElementById('start-call').addEventListener('click', async () => {
 
 // Funkcija za započinjanje poziva
 async function startCall(userId, userName) {
-    // Zahtev za pristup mikrofonu i kameri
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
-        recipientId: userId,
+        recipientId: userId,  // Osiguraj da šalješ poziv samo ciljanom korisniku
         recipientName: userName,
         answered: false,
         ongoing: true,
@@ -916,10 +913,14 @@ async function startCall(userId, userName) {
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 
+    // Zahtev za pristup mikrofonu i kameri
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
     // Dodaj lokalni video
     const localVideo = document.createElement('video');
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
+    localVideo.muted = true; // Isključi zvuk lokalnog videa
     document.body.appendChild(localVideo);
 }
 
@@ -978,7 +979,7 @@ async function acceptCall(callId) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
-    
+
     // Zahtev za pristup mikrofonu i kameri
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
