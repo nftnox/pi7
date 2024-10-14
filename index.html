@@ -914,6 +914,11 @@ async function startCall(userId, userName, stream) {
     console.log(`Poziv upućen korisniku ${userName}.`);
 
     // Dodaj lokalni video
+    addLocalVideo(stream);
+}
+
+// Funkcija za dodavanje lokalnog videa
+function addLocalVideo(stream) {
     const localVideo = document.createElement('video');
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
@@ -980,7 +985,7 @@ async function acceptCall(callId, stream) {
 
     const peerConnection = new RTCPeerConnection(configuration);
 
-    // Dodaj video trackove u peer connection
+    // Dodaj lokalne streamove
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
     peerConnection.onicecandidate = event => {
