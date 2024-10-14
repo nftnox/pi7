@@ -894,11 +894,12 @@ const configuration = {
 
 // Kada korisnik klikne na dugme za poziv
 document.getElementById('start-call').addEventListener('click', async () => {
-    await startCall(selectedUserId, selectedUserName);
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); // Pristup za pozivaoca
+    await startCall(selectedUserId, selectedUserName, stream);
 });
 
 // Funkcija za započinjanje poziva
-async function startCall(userId, userName) {
+async function startCall(userId, userName, stream) {
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
@@ -911,6 +912,13 @@ async function startCall(userId, userName) {
 
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
+
+    // Dodaj lokalni video
+    const localVideo = document.createElement('video');
+    localVideo.srcObject = stream;
+    localVideo.autoplay = true;
+    localVideo.muted = true; // Da ne čuje sebe
+    document.body.appendChild(localVideo);
 }
 
 // Prikazuje obaveštenje da korisnik zove
@@ -967,18 +975,10 @@ async function acceptCall(callId) {
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
 
-    const peerConnection = new RTCPeerConnection(configuration);
-
-    // Zahtev za pristup mikrofonu i kameri
+    // Zahtev za pristup mikrofonu i kameri za primaoca
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    const peerConnection = new RTCPeerConnection(configuration);
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
-
-    // Dodaj lokalni video
-    const localVideo = document.createElement('video');
-    localVideo.srcObject = stream;
-    localVideo.autoplay = true;
-    localVideo.style.width = '300px'; // Možeš promeniti dimenzije
-    document.body.appendChild(localVideo);
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
@@ -990,7 +990,6 @@ async function acceptCall(callId) {
         const remoteVideo = document.createElement('video');
         remoteVideo.srcObject = event.streams[0];
         remoteVideo.autoplay = true;
-        remoteVideo.style.width = '300px'; // Možeš promeniti dimenzije
         document.body.appendChild(remoteVideo); // Prikaz video poziva
     };
 
@@ -1003,10 +1002,6 @@ async function acceptCall(callId) {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         sendAnswer(answer, callId);
-    } else {
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
-        sendOffer(offer, callId);
     }
 
     console.log("Poziv uspostavljen.");
@@ -1024,13 +1019,6 @@ function sendAnswer(answer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
         answer: answer
-    });
-}
-
-function sendOffer(offer, callId) {
-    const callRef = doc(db, 'calls', callId);
-    updateDoc(callRef, {
-        offer: offer
     });
 }
 
