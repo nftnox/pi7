@@ -240,8 +240,7 @@ textarea {
         </div>
     </div>
     
-    <video id="localVideo" autoplay muted style="width: 300px; border: 1px solid black;"></video>
-<video id="remoteVideo" autoplay style="width: 300px; border: 1px solid black;"></video>
+   
 
 
     
@@ -978,8 +977,8 @@ async function acceptCall(callId) {
     const localVideo = document.createElement('video');
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
-    localVideo.muted = true; // Isključi zvuk lokalnog videa
-    document.body.appendChild(localVideo); // Prikaz lokalnog videa
+    localVideo.style.width = '300px'; // Možeš promeniti dimenzije
+    document.body.appendChild(localVideo);
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
@@ -991,13 +990,13 @@ async function acceptCall(callId) {
         const remoteVideo = document.createElement('video');
         remoteVideo.srcObject = event.streams[0];
         remoteVideo.autoplay = true;
+        remoteVideo.style.width = '300px'; // Možeš promeniti dimenzije
         document.body.appendChild(remoteVideo); // Prikaz video poziva
     };
 
     // Postavi ICE kandidate
     setupIceCandidateListener(callId, peerConnection);
 
-    // Postavi ponudu i odgovor
     const callData = await getDoc(callRef);
     if (callData.data().offer) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.data().offer));
@@ -1063,6 +1062,7 @@ function setupIceCandidateListener(callId, peerConnection) {
 
 // Inicijalizuj praćenje dolaznih poziva
 setupIncomingCallListener();
+
 
 
 
