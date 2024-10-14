@@ -997,12 +997,17 @@ async function acceptCall(callId) {
     // Postavi ICE kandidate
     setupIceCandidateListener(callId, peerConnection);
 
+    // Postavi ponudu i odgovor
     const callData = await getDoc(callRef);
     if (callData.data().offer) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.data().offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         sendAnswer(answer, callId);
+    } else {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sendOffer(offer, callId);
     }
 
     console.log("Poziv uspostavljen.");
@@ -1020,6 +1025,13 @@ function sendAnswer(answer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
         answer: answer
+    });
+}
+
+function sendOffer(offer, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        offer: offer
     });
 }
 
