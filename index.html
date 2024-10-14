@@ -962,7 +962,8 @@ function showIncomingCallNotification(callerName, callId) {
 
     // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
-        await acceptCall(callId);
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        await acceptCall(callId, stream);
         document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
     });
 
@@ -973,12 +974,10 @@ function showIncomingCallNotification(callerName, callId) {
 }
 
 // Funkcija za prihvatanje poziva
-async function acceptCall(callId) {
+async function acceptCall(callId, stream) {
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
 
-    // Zahtev za pristup mikrofonu i kameri za primaoca
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     const peerConnection = new RTCPeerConnection(configuration);
 
     // Dodaj video trackove u peer connection
@@ -991,7 +990,6 @@ async function acceptCall(callId) {
     };
 
     peerConnection.ontrack = event => {
-        // Proveri da li je remote video već kreiran
         let remoteVideo = document.getElementById('remoteVideo');
         if (!remoteVideo) {
             remoteVideo = document.createElement('video');
