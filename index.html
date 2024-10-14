@@ -982,6 +982,10 @@ async function acceptCall(callId) {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         sendAnswer(answer, callId);
+    } else {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        sendOffer(offer, callId);
     }
 
     console.log("Poziv uspostavljen.");
@@ -999,6 +1003,13 @@ function sendAnswer(answer, callId) {
     const callRef = doc(db, 'calls', callId);
     updateDoc(callRef, {
         answer: answer
+    });
+}
+
+function sendOffer(offer, callId) {
+    const callRef = doc(db, 'calls', callId);
+    updateDoc(callRef, {
+        offer: offer
     });
 }
 
