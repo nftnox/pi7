@@ -920,7 +920,7 @@ async function startCall(userId, userName, stream) {
     addLocalVideo(stream);
 
     const peerConnection = new RTCPeerConnection(configuration);
-
+    
     // Dodaj lokalne trackove
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
@@ -952,7 +952,7 @@ function addLocalVideo(stream) {
     localVideo.autoplay = true;
     localVideo.muted = true; // Da ne čuje sebe
     localVideo.style.width = '300px';
-    localVideo.style.border = '1px solid black';
+    localVideo.style.border = '1px solid yellow';
     localVideo.style.position = 'absolute';
     localVideo.style.top = '10px';
     localVideo.style.left = '10px';
@@ -968,7 +968,7 @@ function addRemoteVideo(stream) {
         remoteVideo.id = 'remoteVideo';
         remoteVideo.autoplay = true;
         remoteVideo.style.width = '300px';
-        remoteVideo.style.border = '1px solid black';
+        remoteVideo.style.border = '1px solid red';
         remoteVideo.style.position = 'absolute';
         remoteVideo.style.top = '10px';
         remoteVideo.style.right = '10px';
@@ -995,12 +995,13 @@ function showCallingNotification(recipientName) {
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallNotification = document.createElement('div');
     incomingCallNotification.classList.add('call-notification');
-    incomingCallNotification.innerHTML = 
-        `<div class="call-popup">
+    incomingCallNotification.innerHTML = `
+        <div class="call-popup">
             <p>Zove vas ${callerName}</p>
-            <button id="answer-call-${callId}">Accept</button>
-            <button id="decline-call-${callId}">Decline</button>
-        </div>`;
+            <button id="answer-call-${callId}">Answer</button>
+            <button id="decline-call-${callId}">Not Answer</button>
+        </div>
+    `;
     
     incomingCallNotification.style.position = 'fixed';
     incomingCallNotification.style.top = '20px';
