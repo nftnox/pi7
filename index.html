@@ -1108,6 +1108,10 @@ function setupIceCandidateListener(callId, peerConnection) {
                 peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             });
         }
+        // Kada dođe odgovor, postavi ga kao udaljenu deskripciju
+        if (data.answer) {
+            peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        }
     });
 }
 
