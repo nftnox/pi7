@@ -883,7 +883,7 @@ function openChatWithUser(userId) {
 
 
 
-// Konfiguracija za WebRTC
+// WebRTC konfiguracija sa Google STUN serverom
 const configuration = {
     iceServers: [
         {
@@ -916,7 +916,7 @@ async function startCall(userId, userName, stream) {
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 
-    // Dodaj lokalni video
+    // Dodaj lokalni video stream
     addLocalVideo(stream);
 
     const peerConnection = new RTCPeerConnection(configuration);
@@ -937,7 +937,7 @@ async function startCall(userId, userName, stream) {
     // Pošalji ponudu
     await sendOffer(offer, callDoc.id);
 
-    // Dodaj prozor za remote video kod pošiljaoca
+    // Dodaj placeholder za remote video kod pošiljaoca
     addRemoteVideoPlaceholder();
 
     // Slušaj dolazne trackove od drugog korisnika
@@ -947,7 +947,7 @@ async function startCall(userId, userName, stream) {
         }
     };
 
-    // Slušaj ICE kandidate
+    // Postavi ICE kandidate
     setupIceCandidateListener(callDoc.id, peerConnection);
 
     console.log("Poziv uspostavljen kod pošiljaoca.");
@@ -984,7 +984,6 @@ function addRemoteVideoPlaceholder() {
         remoteVideo.style.border = '2px solid red';
         document.body.appendChild(remoteVideo);
     }
-    // Prazan stream placeholder dok ne dođe remote stream
     remoteVideo.autoplay = true;
 }
 
@@ -1008,20 +1007,6 @@ function addRemoteVideo(stream) {
     remoteVideo.autoplay = true;
 }
 
-// Prikazuje obaveštenje da korisnik zove
-function showCallingNotification(recipientName) {
-    const callingNotification = document.createElement('div');
-    callingNotification.classList.add('call-notification');
-    callingNotification.innerHTML = `<p>Zoveš ${recipientName}</p>`;
-    callingNotification.style.position = 'absolute';
-    callingNotification.style.top = '20px';
-    callingNotification.style.right = '20px';
-    callingNotification.style.backgroundColor = '#ffcc00';
-    callingNotification.style.padding = '10px';
-    callingNotification.style.borderRadius = '5px';
-    document.body.appendChild(callingNotification);
-}
-
 // Funkcija za prikazivanje dolaznog poziva
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallNotification = document.createElement('div');
@@ -1030,7 +1015,7 @@ function showIncomingCallNotification(callerName, callId) {
         <div class="call-popup">
             <p>Zove vas ${callerName}</p>
             <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Not Answer</button>
+            <button id="decline-call-${callId}">Decline</button>
         </div>`;
     
     incomingCallNotification.style.position = 'fixed';
