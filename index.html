@@ -240,9 +240,7 @@ textarea {
         </div>
     </div>
     
-    <video id="localVideo" autoplay muted></video>
-    <video id="remoteVideo" autoplay></video>
-    
+   
 
 
     
@@ -939,9 +937,6 @@ async function startCall(userId, userName, stream) {
     // Pošalji ponudu
     await sendOffer(offer, callDoc.id);
 
-    // Dodaj prozor za remote video kod pošiljaoca
-    addRemoteVideoPlaceholder();
-
     // Slušaj dolazne trackove od drugog korisnika
     peerConnection.ontrack = event => {
         if (event.streams && event.streams[0]) {
@@ -966,16 +961,15 @@ function addLocalVideo(stream) {
         localVideo.style.right = '10px';
         localVideo.style.width = '100px'; // Manji lokalni video
         localVideo.style.border = '2px solid yellow';
-        localVideo.style.zIndex = '1000'; // Osigurajte da je lokalni video iznad ostalih
+        localVideo.muted = true; // Da ne čuje sebe
         document.body.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
-    localVideo.muted = true; // Da ne čuje sebe
 }
 
-// Funkcija za dodavanje placeholdera za remote video
-function addRemoteVideoPlaceholder() {
+// Funkcija za dodavanje remote videa
+function addRemoteVideo(stream) {
     let remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
@@ -984,33 +978,10 @@ function addRemoteVideoPlaceholder() {
         remoteVideo.style.top = '0';
         remoteVideo.style.left = '0';
         remoteVideo.style.width = '100%'; // Veći remote video
-        remoteVideo.style.height = '100%'; // Postavi visinu na 100%
         remoteVideo.style.border = '2px solid red';
-        remoteVideo.style.zIndex = '999'; // Ispod lokalnog videa
         document.body.appendChild(remoteVideo);
     }
-    // Prazan stream placeholder dok ne dođe remote stream
-    remoteVideo.autoplay = true;
-}
-
-// Funkcija za dodavanje remote videa
-function addRemoteVideo(stream) {
-    let remoteVideo = document.getElementById('remoteVideo');
-    if (remoteVideo) {
-        remoteVideo.srcObject = stream;
-    } else {
-        // Ako remote video nije kreiran, kreiraj ga
-        remoteVideo = document.createElement('video');
-        remoteVideo.id = 'remoteVideo';
-        remoteVideo.style.position = 'absolute';
-        remoteVideo.style.top = '0';
-        remoteVideo.style.left = '0';
-        remoteVideo.style.width = '100%'; // Veći remote video
-        remoteVideo.style.height = '100%'; // Postavi visinu na 100%
-        remoteVideo.style.border = '2px solid red';
-        remoteVideo.srcObject = stream;
-        document.body.appendChild(remoteVideo);
-    }
+    remoteVideo.srcObject = stream;
     remoteVideo.autoplay = true;
 }
 
@@ -1124,18 +1095,34 @@ function sendAnswer(answer, callId) {
     });
 }
 
-// Postavljanje slušatelja za ICE kandidate
+// Funkcija za postavljanje slušanja dolaznih poziva
+function setupIncomingCallListener() {
+    const callRef = collection(db, 'calls');
+    onSnapshot(callRef, (snapshot) => {
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            if (!data.answered && data.recipientId === username) {
+                showIncomingCallNotification(data.caller, doc.id);
+            }
+        });
+    });
+}
+
+// Funkcija za postavljanje ICE kandidata
 function setupIceCandidateListener(callId, peerConnection) {
     const callRef = doc(db, 'calls', callId);
-    onSnapshot(callRef, (snapshot) => {
-        const data = snapshot.data();
-        if (data && data.candidates) {
+    onSnapshot(callRef, (doc) => {
+        const data = doc.data();
+        if (data.candidates) {
             data.candidates.forEach(candidate => {
                 peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             });
         }
     });
 }
+
+// Inicijalizuj praćenje dolaznih poziva
+setupIncomingCallListener();
 
 
 
