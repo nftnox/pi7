@@ -1061,6 +1061,9 @@ async function acceptCall(callId, stream) {
         sendAnswer(answer, callId);
     }
 
+    // Obezbedi da primaoc poziva takođe vidi lokalni video poziva
+    addRemoteVideo(stream);
+
     console.log("Poziv uspostavljen.");
 }
 
