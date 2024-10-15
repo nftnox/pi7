@@ -897,12 +897,15 @@ const peerConnections = {};
 
 // Kada korisnik klikne na dugme za poziv
 document.getElementById('start-call').addEventListener('click', async () => {
+    console.log('Start call button clicked');
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    console.log('Media stream obtained');
     await startCall(selectedUserId, selectedUserName, stream);
 });
 
 // Funkcija za započinjanje poziva
 async function startCall(userId, userName, stream) {
+    console.log(`Starting call to userId: ${userId}, userName: ${userName}`);
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
@@ -914,36 +917,43 @@ async function startCall(userId, userName, stream) {
         offer: null,
         answer: null
     });
+    console.log(`Call document created with ID: ${callDoc.id}`);
 
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 
     // Dodaj lokalni video
     addLocalVideo(stream);
+    console.log('Local video added');
 
     const peerConnection = new RTCPeerConnection(configuration);
     peerConnections[callDoc.id] = peerConnection;
+    console.log(`PeerConnection created and stored with ID: ${callDoc.id}`);
 
     // Dodaj lokalne trackove u peer konekciju
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+    console.log('Local tracks added to PeerConnection');
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
+            console.log('New ICE candidate generated:', event.candidate);
             sendIceCandidate(event.candidate, callDoc.id);
         }
     };
 
     // Kreiraj ponudu i postavi je kao lokalnu
     const offer = await peerConnection.createOffer();
+    console.log('Offer created:', offer);
     await peerConnection.setLocalDescription(offer);
-    console.log('Ponuda kreirana i postavljena kao lokalna.');
+    console.log('Local description set with offer');
 
     // Pošalji ponudu
     await sendOffer(offer, callDoc.id);
-    console.log('Ponuda poslana.');
+    console.log('Offer sent to Firestore');
 
     // Dodaj prozor za remote video
     addRemoteVideoPlaceholder();
+    console.log('Remote video placeholder added');
 
     // Slušaj dolazne trackove od drugog korisnika
     peerConnection.ontrack = event => {
@@ -951,6 +961,7 @@ async function startCall(userId, userName, stream) {
         if (event.streams && event.streams[0]) {
             const remoteStream = event.streams[0];
             if (remoteStream.getVideoTracks().length > 0) {
+                console.log('Remote video track received');
                 addRemoteVideo(remoteStream);
             } else {
                 console.log('Remote stream nema video trackova.');
@@ -961,7 +972,9 @@ async function startCall(userId, userName, stream) {
     // Slušaj odgovor
     onSnapshot(doc(db, 'calls', callDoc.id), async (docSnap) => {
         const data = docSnap.data();
+        console.log('Snapshot update:', data);
         if (data.answer && !peerConnection.currentRemoteDescription) {
+            console.log('Answer received, setting remote description');
             await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
             console.log("Remote description postavljena na pozivatelju.");
         }
@@ -969,6 +982,7 @@ async function startCall(userId, userName, stream) {
 
     // Slušaj ICE kandidate od primaoca
     setupIceCandidateListener(callDoc.id, peerConnection);
+    console.log("ICE Candidate listener set up");
 
     console.log("Poziv uspostavljen kod pošiljaoca.");
 }
@@ -988,8 +1002,10 @@ function addLocalVideo(stream) {
         localVideo.autoplay = true;
         localVideo.muted = true; // Da ne čuje sebe
         document.body.appendChild(localVideo);
+        console.log('Local video element created and appended to DOM');
     }
     localVideo.srcObject = stream;
+    console.log('Local video srcObject set');
 }
 
 // Funkcija za dodavanje placeholdera za remote video
@@ -1009,6 +1025,7 @@ function addRemoteVideoPlaceholder() {
         remoteVideo.style.zIndex = '1';
         remoteVideo.autoplay = true;
         document.body.appendChild(remoteVideo);
+        console.log('Remote video placeholder created and appended to DOM');
     }
 }
 
@@ -1017,7 +1034,7 @@ function addRemoteVideo(stream) {
     let remoteVideo = document.getElementById('remoteVideo');
     if (remoteVideo) {
         remoteVideo.srcObject = stream;
-        console.log('Remote video stream postavljen.');
+        console.log('Remote video stream postavljen');
     } else {
         // Ako remote video nije kreiran, kreiraj ga
         remoteVideo = document.createElement('video');
@@ -1033,14 +1050,17 @@ function addRemoteVideo(stream) {
         remoteVideo.autoplay = true;
         remoteVideo.srcObject = stream;
         document.body.appendChild(remoteVideo);
-        console.log('Remote video stream kreiran i postavljen.');
+        console.log('Remote video stream kreiran i postavljen');
     }
 }
 
 // Prikazuje obaveštenje da korisnik zove
 function showCallingNotification(recipientName) {
     const existingNotification = document.querySelector('.call-notification');
-    if (existingNotification) return; // Izbegni višestruka obaveštenja
+    if (existingNotification) {
+        console.log('Call notification already exists');
+        return; // Izbegni višestruka obaveštenja
+    }
 
     const callingNotification = document.createElement('div');
     callingNotification.classList.add('call-notification');
@@ -1053,12 +1073,16 @@ function showCallingNotification(recipientName) {
     callingNotification.style.borderRadius = '5px';
     callingNotification.style.zIndex = '1000';
     document.body.appendChild(callingNotification);
+    console.log('Calling notification displayed');
 }
 
 // Funkcija za prikazivanje dolaznog poziva
 function showIncomingCallNotification(callerName, callId) {
     const existingNotification = document.querySelector('.incoming-call-notification');
-    if (existingNotification) return; // Izbegni višestruka obaveštenja
+    if (existingNotification) {
+        console.log('Incoming call notification already exists');
+        return; // Izbegni višestruka obaveštenja
+    }
 
     const incomingCallNotification = document.createElement('div');
     incomingCallNotification.classList.add('call-notification', 'incoming-call-notification');
@@ -1080,18 +1104,24 @@ function showIncomingCallNotification(callerName, callId) {
     incomingCallNotification.style.zIndex = '1000';
 
     document.body.appendChild(incomingCallNotification);
+    console.log('Incoming call notification displayed');
 
     // Događaj za prihvatanje poziva
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+        console.log(`Answer button clicked for call ID: ${callId}`);
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        console.log('Media stream obtained for answering call');
         await acceptCall(callId, stream);
         document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
+        console.log('Incoming call notification removed after answering');
     });
 
     // Događaj za odbijanje poziva
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
+        console.log(`Decline button clicked for call ID: ${callId}`);
         declineCall(callId);
         document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
+        console.log('Incoming call notification removed after declining');
     });
 }
 
@@ -1104,41 +1134,50 @@ async function declineCall(callId) {
 
 // Funkcija za prihvatanje poziva
 async function acceptCall(callId, stream) {
+    console.log(`Accepting call with ID: ${callId}`);
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
+    console.log(`Call document ${callId} updated to answered`);
 
     const peerConnection = new RTCPeerConnection(configuration);
     peerConnections[callId] = peerConnection;
+    console.log(`PeerConnection created and stored with ID: ${callId}`);
 
     // Dodaj video trackove u peer konekciju
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+    console.log('Local tracks added to PeerConnection');
 
     // Kreiraj i dodaj lokalni video
     addLocalVideo(stream);
+    console.log('Local video added');
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
+            console.log('New ICE candidate generated (receiver):', event.candidate);
             sendIceCandidate(event.candidate, callId);
         }
     };
 
     peerConnection.ontrack = event => {
-        console.log('ontrack event (primalac):', event);
+        console.log('ontrack event (receiver):', event);
         if (event.streams && event.streams[0]) {
             const remoteStream = event.streams[0];
             if (remoteStream.getVideoTracks().length > 0) {
+                console.log('Remote video track received (receiver)');
                 addRemoteVideo(remoteStream);
             } else {
-                console.log('Remote stream nema video trackova.');
+                console.log('Remote stream nema video trackova (receiver).');
             }
         }
     };
 
     // Postavi ICE kandidate
     setupIceCandidateListener(callId, peerConnection);
+    console.log("ICE Candidate listener set up (receiver)");
 
     // Kreiraj odgovor
     const callData = (await getDoc(callRef)).data();
+    console.log('Call data retrieved:', callData);
     if (callData.offer) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
         console.log("Remote description postavljena na primaocu.");
@@ -1146,6 +1185,7 @@ async function acceptCall(callId, stream) {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         console.log('Odgovor kreiran i postavljen kao lokalni.');
+
         await sendAnswer(answer, callId);
         console.log('Odgovor poslat.');
     }
@@ -1154,9 +1194,10 @@ async function acceptCall(callId, stream) {
     onSnapshot(callRef, (docSnap) => {
         const data = docSnap.data();
         if (data.answer && !peerConnection.currentRemoteDescription) {
+            console.log('Answer received on receiver side, setting remote description');
             peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
-                .then(() => console.log('Remote description postavljena nakon odgovora.'))
-                .catch(error => console.error('Greška pri postavljanju remote description:', error));
+                .then(() => console.log('Remote description postavljena nakon odgovora (receiver)'))
+                .catch(error => console.error('Greška pri postavljanju remote description (receiver):', error));
         }
     });
 
@@ -1165,6 +1206,7 @@ async function acceptCall(callId, stream) {
 
 // Funkcije za slanje ICE kandidata i ponude
 function sendIceCandidate(candidate, callId) {
+    console.log(`Sending ICE candidate for call ID: ${callId}`, candidate);
     const candidatesRef = collection(db, 'calls', callId, 'candidates');
     addDoc(candidatesRef, candidate)
         .then(() => {
@@ -1203,7 +1245,9 @@ function setupIncomingCallListener() {
     onSnapshot(callsRef, (snapshot) => {
         snapshot.forEach((doc) => {
             const data = doc.data();
+            console.log('Incoming call snapshot:', data);
             if (!data.answered && data.recipientId === username && data.ongoing) {
+                console.log('Incoming call detected:', doc.id);
                 showIncomingCallNotification(data.caller, doc.id);
             }
         });
@@ -1232,6 +1276,7 @@ function setupIceCandidateListener(callId, peerConnection) {
 
 // Inicijalizuj praćenje dolaznih poziva
 setupIncomingCallListener();
+console.log('Incoming call listener initialized');
 
 
 
