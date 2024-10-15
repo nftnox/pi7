@@ -892,9 +892,6 @@ const configuration = {
     ]
 };
 
-let callStartTime;
-let callTimer;
-
 // Kada korisnik klikne na dugme za poziv
 document.getElementById('start-call').addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -920,8 +917,8 @@ async function startCall(userId, userName, stream) {
     console.log(`Poziv upućen korisniku ${userName}.`);
 
     const peerConnection = new RTCPeerConnection(configuration);
-
-    // Dodaj lokalne trackove u peer konekciju
+    
+    // Dodaj audio trackove u peer konekciju
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
     peerConnection.onicecandidate = event => {
@@ -939,9 +936,11 @@ async function startCall(userId, userName, stream) {
 
     // Slušaj dolazne trackove od drugog korisnika
     peerConnection.ontrack = event => {
-        if (event.streams && event.streams[0]) {
-            // Remote audio stream - no UI changes needed
-        }
+        const audio = document.createElement('audio');
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.controls = true; // Optional: Add controls for audio
+        document.body.appendChild(audio);
     };
 
     // Slušaj ICE kandidate
@@ -954,20 +953,13 @@ async function startCall(userId, userName, stream) {
 function showCallingNotification(recipientName) {
     const callingNotification = document.createElement('div');
     callingNotification.classList.add('call-notification');
-    callingNotification.innerHTML = `
-        <div class="call-popup">
-            <h1>Zovem ${recipientName}</h1>
-        </div>`;
-    callingNotification.style.position = 'fixed';
-    callingNotification.style.top = '0';
-    callingNotification.style.left = '0';
-    callingNotification.style.width = '100%';
-    callingNotification.style.height = '100%';
-    callingNotification.style.backgroundColor = 'rgba(255, 204, 0, 0.9)';
-    callingNotification.style.display = 'flex';
-    callingNotification.style.alignItems = 'center';
-    callingNotification.style.justifyContent = 'center';
-    callingNotification.style.fontSize = '2em';
+    callingNotification.innerHTML = `<p>Zoveš ${recipientName}</p>`;
+    callingNotification.style.position = 'absolute';
+    callingNotification.style.top = '20px';
+    callingNotification.style.right = '20px';
+    callingNotification.style.backgroundColor = '#ffcc00';
+    callingNotification.style.padding = '10px';
+    callingNotification.style.borderRadius = '5px';
     document.body.appendChild(callingNotification);
 }
 
@@ -977,21 +969,18 @@ function showIncomingCallNotification(callerName, callId) {
     incomingCallNotification.classList.add('call-notification');
     incomingCallNotification.innerHTML = `
         <div class="call-popup">
-            <h1>Zove vas ${callerName}</h1>
+            <p>Zove vas ${callerName}</p>
             <button id="answer-call-${callId}">Answer</button>
             <button id="decline-call-${callId}">Not Answer</button>
         </div>`;
     
     incomingCallNotification.style.position = 'fixed';
-    incomingCallNotification.style.top = '0';
-    incomingCallNotification.style.left = '0';
-    incomingCallNotification.style.width = '100%';
-    incomingCallNotification.style.height = '100%';
-    incomingCallNotification.style.backgroundColor = 'rgba(255, 204, 0, 0.9)';
-    incomingCallNotification.style.display = 'flex';
-    incomingCallNotification.style.alignItems = 'center';
-    incomingCallNotification.style.justifyContent = 'center';
-    incomingCallNotification.style.fontSize = '2em';
+    incomingCallNotification.style.top = '20px';
+    incomingCallNotification.style.left = '50%';
+    incomingCallNotification.style.transform = 'translateX(-50%)';
+    incomingCallNotification.style.backgroundColor = '#ffcc00';
+    incomingCallNotification.style.padding = '20px';
+    incomingCallNotification.style.borderRadius = '5px';
     incomingCallNotification.style.zIndex = '1000';
 
     document.body.appendChild(incomingCallNotification);
@@ -1026,9 +1015,11 @@ async function acceptCall(callId, stream) {
     };
 
     peerConnection.ontrack = event => {
-        if (event.streams && event.streams[0]) {
-            // Remote audio stream - no UI changes needed
-        }
+        const audio = document.createElement('audio');
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.controls = true; // Optional: Add controls for audio
+        document.body.appendChild(audio);
     };
 
     // Postavi ICE kandidate
@@ -1044,15 +1035,6 @@ async function acceptCall(callId, stream) {
 
     startCallTimer(); // Start the call timer
     console.log("Poziv uspostavljen kod primaoca.");
-}
-
-// Funkcija za pokretanje timera
-function startCallTimer() {
-    callStartTime = Date.now();
-    callTimer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-        document.title = `Call Duration: ${elapsed}s`; // Update title or UI with elapsed time
-    }, 1000);
 }
 
 // Funkcije za slanje ICE kandidata i ponude
@@ -1105,6 +1087,23 @@ function setupIceCandidateListener(callId, peerConnection) {
 
 // Inicijalizuj praćenje dolaznih poziva
 setupIncomingCallListener();
+
+// Timer funkcija
+let callStartTime;
+function startCallTimer() {
+    callStartTime = new Date();
+    const timerElement = document.createElement('div');
+    document.body.appendChild(timerElement);
+    
+    const updateTimer = () => {
+        const elapsed = Math.floor((new Date() - callStartTime) / 1000);
+        const minutes = Math.floor(elapsed / 60);
+        const seconds = elapsed % 60;
+        timerElement.innerText = `Call Duration: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    };
+
+    setInterval(updateTimer, 1000);
+}
 
 
 
