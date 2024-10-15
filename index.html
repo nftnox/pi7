@@ -951,11 +951,11 @@ function addLocalVideo(stream) {
     localVideo.srcObject = stream;
     localVideo.autoplay = true;
     localVideo.muted = true; // Da ne čuje sebe
-    localVideo.style.width = '300px';
-    localVideo.style.border = '1px solid yellow';
+    localVideo.style.width = '100px'; // Manji lokalni video
+    localVideo.style.border = '2px solid yellow';
     localVideo.style.position = 'absolute';
-    localVideo.style.top = '10px';
-    localVideo.style.left = '10px';
+    localVideo.style.bottom = '10px';
+    localVideo.style.right = '10px';
     localVideo.id = 'localVideo'; // Dodaj ID za lokalni video
     document.body.appendChild(localVideo);
 }
@@ -967,11 +967,11 @@ function addRemoteVideo(stream) {
         remoteVideo = document.createElement('video');
         remoteVideo.id = 'remoteVideo';
         remoteVideo.autoplay = true;
-        remoteVideo.style.width = '300px';
-        remoteVideo.style.border = '1px solid red';
+        remoteVideo.style.width = '100%'; // Veći remote video
+        remoteVideo.style.border = '2px solid red';
         remoteVideo.style.position = 'absolute';
-        remoteVideo.style.top = '10px';
-        remoteVideo.style.right = '10px';
+        remoteVideo.style.top = '0';
+        remoteVideo.style.left = '0';
         document.body.appendChild(remoteVideo);
     }
     remoteVideo.srcObject = stream; // Poveži remote video sa strimom
