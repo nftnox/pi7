@@ -939,7 +939,10 @@ async function startCall(userId, userName, stream) {
     
     // Slušaj dolazne trackove
     peerConnection.ontrack = event => {
-        addRemoteVideo(event.streams[0]);
+        // Dodaj remote video samo kada je primaoc poziva
+        if (event.streams[0]) {
+            addRemoteVideo(event.streams[0]);
+        }
     };
 
     console.log("Poziv uspostavljen.");
@@ -1047,6 +1050,7 @@ async function acceptCall(callId, stream) {
     };
 
     peerConnection.ontrack = event => {
+        // Dodaj remote video kada primač poziva primi poziv
         addRemoteVideo(event.streams[0]);
     };
 
@@ -1061,8 +1065,8 @@ async function acceptCall(callId, stream) {
         sendAnswer(answer, callId);
     }
 
-    // Obezbedi da primaoc poziva takođe vidi lokalni video poziva
-    addRemoteVideo(stream);
+    // Kada korisnik prihvati poziv, on treba da vidi i daljinski video
+    addRemoteVideo(stream); // Obezbeđujemo da se lokalni stream prikazuje kao remote video
 
     console.log("Poziv uspostavljen.");
 }
