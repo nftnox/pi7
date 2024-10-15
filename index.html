@@ -920,7 +920,7 @@ async function startCall(userId, userName, stream) {
     addLocalVideo(stream);
 
     const peerConnection = new RTCPeerConnection(configuration);
-    
+
     // Dodaj lokalne trackove
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
@@ -998,8 +998,8 @@ function showIncomingCallNotification(callerName, callId) {
     incomingCallNotification.innerHTML = 
         `<div class="call-popup">
             <p>Zove vas ${callerName}</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Not Answer</button>
+            <button id="answer-call-${callId}">Accept</button>
+            <button id="decline-call-${callId}">Decline</button>
         </div>`;
     
     incomingCallNotification.style.position = 'fixed';
@@ -1107,10 +1107,6 @@ function setupIceCandidateListener(callId, peerConnection) {
             data.candidates.forEach(candidate => {
                 peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             });
-        }
-        // Kada dođe odgovor, postavi ga kao udaljenu deskripciju
-        if (data.answer) {
-            peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         }
     });
 }
