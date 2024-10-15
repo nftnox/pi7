@@ -939,7 +939,7 @@ async function startCall(userId, userName, stream) {
     
     // Slušaj dolazne trackove
     peerConnection.ontrack = event => {
-        addRemoteVideo(event.streams[0], false); // false indicates it's the caller's stream
+        addRemoteVideo(event.streams[0]); // Dodaj remote video
     };
 
     console.log("Poziv uspostavljen.");
@@ -961,7 +961,7 @@ function addLocalVideo(stream) {
 }
 
 // Dodaj remote video
-function addRemoteVideo(stream, isCaller) {
+function addRemoteVideo(stream) {
     let remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
@@ -991,41 +991,6 @@ function showCallingNotification(recipientName) {
     document.body.appendChild(callingNotification);
 }
 
-// Funkcija za prikazivanje dolaznog poziva
-function showIncomingCallNotification(callerName, callId) {
-    const incomingCallNotification = document.createElement('div');
-    incomingCallNotification.classList.add('call-notification');
-    incomingCallNotification.innerHTML = 
-        `<div class="call-popup">
-            <p>Zove vas ${callerName}</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Not Answer</button>
-        </div>`;
-    
-    incomingCallNotification.style.position = 'fixed';
-    incomingCallNotification.style.top = '20px';
-    incomingCallNotification.style.left = '50%';
-    incomingCallNotification.style.transform = 'translateX(-50%)';
-    incomingCallNotification.style.backgroundColor = '#ffcc00';
-    incomingCallNotification.style.padding = '20px';
-    incomingCallNotification.style.borderRadius = '5px';
-    incomingCallNotification.style.zIndex = '1000';
-
-    document.body.appendChild(incomingCallNotification);
-
-    // Događaj za prihvatanje poziva
-    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        await acceptCall(callId, stream);
-        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
-    });
-
-    // Događaj za odbijanje poziva
-    document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
-    });
-}
-
 // Funkcija za prihvatanje poziva
 async function acceptCall(callId, stream) {
     const callRef = doc(db, 'calls', callId);
@@ -1036,7 +1001,7 @@ async function acceptCall(callId, stream) {
     // Dodaj video trackove u peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    // Kreiraj i dodaj lokalni video
+    // Dodaj lokalni video
     addLocalVideo(stream);
 
     peerConnection.onicecandidate = event => {
@@ -1046,7 +1011,7 @@ async function acceptCall(callId, stream) {
     };
 
     peerConnection.ontrack = event => {
-        addRemoteVideo(event.streams[0], true); // true indicates it's the receiver's stream
+        addRemoteVideo(event.streams[0]); // Dodaj remote video
     };
 
     // Postavi ICE kandidate
