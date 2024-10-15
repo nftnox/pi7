@@ -916,7 +916,7 @@ async function startCall(userId, userName, stream) {
     showCallingNotification(userName);
     console.log(`Poziv upućen korisniku ${userName}.`);
 
-    // Dodaj lokalni video samo ako je to poziv
+    // Dodaj lokalni video
     addLocalVideo(stream);
 
     // Kreiraj RTC peer connection
@@ -935,7 +935,7 @@ async function startCall(userId, userName, stream) {
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    await updateDoc(callDoc.ref, { offer: offer });
+    await updateDoc(callDoc.ref, { offer: offer }); // Ažuriraj ponudu u Firestore
 }
 
 // Funkcija za dodavanje lokalnog videa
@@ -949,7 +949,7 @@ function addLocalVideo(stream) {
     localVideo.style.position = 'absolute';
     localVideo.style.top = '10px';
     localVideo.style.left = '10px';
-    localVideo.id = 'localVideo'; // Dodaj ID za lokalni video
+    localVideo.id = 'localVideo';
     document.body.appendChild(localVideo);
 }
 
@@ -1025,12 +1025,9 @@ async function acceptCall(callId, stream) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
-
-    // Dodaj video trackove u peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-    // Kreiraj i dodaj lokalni video
-    addLocalVideo(stream);
+    addLocalVideo(stream); // Dodaj lokalni video
 
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
@@ -1042,18 +1039,17 @@ async function acceptCall(callId, stream) {
         addRemoteVideo(event.streams[0]); // Dodaj udaljeni video
     };
 
-    // Postavi ICE kandidate
     setupIceCandidateListener(callId, peerConnection);
 
     const callData = await getDoc(callRef);
-    if (callData.data().offer) {
+    if (callData.exists() && callData.data().offer) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.data().offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         sendAnswer(answer, callId);
+    } else {
+        console.error("Nema ponude za ovaj poziv.");
     }
-
-    console.log("Poziv uspostavljen.");
 }
 
 // Funkcije za slanje ICE kandidata i ponude
