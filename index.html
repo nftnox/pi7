@@ -1141,7 +1141,7 @@ function showIncomingCallNotification(callerName, callId) {
                 <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
             </div>
         </div>`;
-    
+
     incomingCallOverlay.style.position = 'fixed';
     incomingCallOverlay.style.top = '0';
     incomingCallOverlay.style.left = '0';
@@ -1158,15 +1158,22 @@ function showIncomingCallNotification(callerName, callId) {
 
     document.body.appendChild(incomingCallOverlay);
 
+    // Add ringtone sound
+    const ringtone = new Audio('images/ringtone.mp3');
+    ringtone.loop = true;
+    ringtone.play();
+
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
+        ringtone.pause(); // Stop ringtone when call is accepted
         document.body.removeChild(incomingCallOverlay); // Remove overlay
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
+        ringtone.pause(); // Stop ringtone when call is declined
         document.body.removeChild(incomingCallOverlay); // Remove overlay
         // Optionally, update call document to indicate call was declined
     });
@@ -1217,6 +1224,7 @@ function setupIncomingCallListener() {
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
