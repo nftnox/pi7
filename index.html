@@ -1188,6 +1188,52 @@ function setupIncomingCallListener() {
     });
 }
 
+
+
+// Function to show end call button
+function showEndCallButton(peerConnection, callId) {
+    const endCallButton = document.createElement('button');
+    endCallButton.innerText = 'Prekini poziv';
+    endCallButton.style.position = 'fixed';
+    endCallButton.style.bottom = '20px';
+    endCallButton.style.left = '50%';
+    endCallButton.style.transform = 'translateX(-50%)';
+    endCallButton.style.padding = '10px 20px';
+    endCallButton.style.backgroundColor = 'red';
+    endCallButton.style.color = 'white';
+    endCallButton.style.border = 'none';
+    endCallButton.style.borderRadius = '5px';
+    endCallButton.style.fontSize = '18px';
+    endCallButton.style.cursor = 'pointer';
+    endCallButton.style.zIndex = '10001'; // Above videos
+
+    document.body.appendChild(endCallButton);
+
+    // Event for ending the call
+    endCallButton.addEventListener('click', () => {
+        peerConnection.close(); // Close the WebRTC connection
+        document.body.removeChild(endCallButton); // Remove button from screen
+        endCall(callId); // Custom function to handle call termination in Firestore
+    });
+}
+
+// Function to handle ending the call in Firestore
+async function endCall(callId) {
+    const callRef = doc(db, 'calls', callId);
+    await updateDoc(callRef, { ongoing: false }); // Mark call as ended in Firestore
+    console.log('Poziv je prekinut.');
+}
+
+// In the startCall and acceptCall functions, call the showEndCallButton after the connection is established
+
+// Inside startCall function, after call established
+showEndCallButton(peerConnection, callDoc.id);
+
+// Inside acceptCall function, after call established
+showEndCallButton(peerConnection, callId);
+
+
+
 // Initialize listening for incoming calls
 setupIncomingCallListener();
 
