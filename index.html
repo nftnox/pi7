@@ -899,29 +899,37 @@ document.getElementById('call-user').addEventListener('click', async () => {
     outgoingCallText.innerText = `Zovem ${selectedUserName}...`;
     document.getElementById('outgoing-call').style.display = 'block';
 
-    // Dobavi audio stream
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    try {
+        // Dobavi audio stream
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("Audio stream dobavljen");
 
-    peerConnection = new RTCPeerConnection(servers);
-    peerConnection.addStream(localStream);
+        peerConnection = new RTCPeerConnection(servers);
+        peerConnection.addStream(localStream);
+        console.log("Dodali smo localStream u peerConnection");
 
-    peerConnection.ontrack = (event) => {
-        remoteStream = event.streams[0];
-        const audioElement = new Audio();
-        audioElement.srcObject = remoteStream;
-        audioElement.play();
-    };
+        peerConnection.ontrack = (event) => {
+            remoteStream = event.streams[0];
+            const audioElement = new Audio();
+            audioElement.srcObject = remoteStream;
+            audioElement.play();
+        };
 
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            sendMessageToFirestore('ice-candidate', event.candidate);
-        }
-    };
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log("ICE candidate generisan:", event.candidate);
+                sendMessageToFirestore('ice-candidate', event.candidate);
+            }
+        };
 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        console.log("Kreirana ponuda za poziv:", offer);
 
-    sendMessageToFirestore('offer', offer);
+        sendMessageToFirestore('offer', offer);
+    } catch (error) {
+        console.error("Greška prilikom pokretanja poziva:", error);
+    }
 });
 
 // Funkcija za prikazivanje primljenog poziva
@@ -943,63 +951,86 @@ function showIncomingCall(requesterName) {
 
 // Prihvatanje poziva
 async function acceptCall() {
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection.addStream(localStream);
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        peerConnection.addStream(localStream);
 
-    peerConnection.ontrack = (event) => {
-        remoteStream = event.streams[0];
-        const audioElement = new Audio();
-        audioElement.srcObject = remoteStream;
-        audioElement.play();
-    };
+        peerConnection.ontrack = (event) => {
+            remoteStream = event.streams[0];
+            const audioElement = new Audio();
+            audioElement.srcObject = remoteStream;
+            audioElement.play();
+        };
 
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        console.log("Kreiran odgovor za poziv:", answer);
 
-    sendMessageToFirestore('answer', answer);
+        sendMessageToFirestore('answer', answer);
+    } catch (error) {
+        console.error("Greška prilikom prihvatanja poziva:", error);
+    }
 }
 
 // Odbijanje poziva
 function rejectCall() {
-    // Možemo poslati obavijest o odbijanju poziva ili samo zatvoriti prozor
     console.log('Poziv odbijen.');
-    document.getElementById('incoming-call').style.display = 'none';
 }
 
 // Funkcija za primanje poziva
 async function receiveCall(offer) {
-    peerConnection = new RTCPeerConnection(servers);
-    peerConnection.addStream(localStream);
+    try {
+        peerConnection = new RTCPeerConnection(servers);
+        peerConnection.addStream(localStream);
 
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            sendMessageToFirestore('ice-candidate', event.candidate);
-        }
-    };
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                sendMessageToFirestore('ice-candidate', event.candidate);
+            }
+        };
 
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    showIncomingCall(offer.requester);
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        console.log("Postavljena remote ponuda:", offer);
+        showIncomingCall(offer.requester);
+    } catch (error) {
+        console.error("Greška prilikom primanja poziva:", error);
+    }
 }
 
 // Kada korisnik primi odgovor na poziv
 async function handleAnswer(answer) {
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+        console.log("Postavljen remote odgovor:", answer);
+    } catch (error) {
+        console.error("Greška prilikom postavljanja remote odgovora:", error);
+    }
 }
 
 // Kada se prime ICE kandidati
 async function handleIceCandidate(candidate) {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log("Dodani ICE kandidat:", candidate);
+    } catch (error) {
+        console.error("Greška prilikom dodavanja ICE kandidata:", error);
+    }
 }
 
 // Funkcija za slanje podataka u Firestore
 async function sendMessageToFirestore(type, data) {
-    const chatRequestCollection = collection(db, 'callRequests');
-    await addDoc(chatRequestCollection, {
-        sender: username,
-        recipient: selectedUserName,
-        type: type,
-        data: data
-    });
+    try {
+        const chatRequestCollection = collection(db, 'callRequests');
+        await addDoc(chatRequestCollection, {
+            sender: username,
+            recipient: selectedUserName,
+            type: type,
+            data: JSON.stringify(data) // Serializuj podatke jer Firestore zahtijeva standardne tipove
+        });
+        console.log(`Poruka tipa ${type} poslana u Firestore.`);
+    } catch (error) {
+        console.error("Greška prilikom slanja podataka u Firestore:", error);
+    }
 }
 
 // Slušanje za dolazne pozive i signalizacijske podatke putem Firestore
@@ -1007,12 +1038,13 @@ onSnapshot(query(collection(db, 'callRequests'), where('recipient', '==', userna
     snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
             const data = change.doc.data();
+            console.log("Nova poruka stigla iz Firestore:", data);
             if (data.type === 'offer') {
-                receiveCall(data.data);
+                receiveCall(JSON.parse(data.data));
             } else if (data.type === 'answer') {
-                handleAnswer(data.data);
+                handleAnswer(JSON.parse(data.data));
             } else if (data.type === 'ice-candidate') {
-                handleIceCandidate(data.data);
+                handleIceCandidate(JSON.parse(data.data));
             }
         }
     });
