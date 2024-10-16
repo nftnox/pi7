@@ -1059,22 +1059,46 @@ function addLocalVideo(stream) {
 // Function to add remote video
 function addRemoteVideo(stream) {
     let remoteVideo = document.getElementById('remoteVideo');
+    let remoteVideoBlur = document.getElementById('remoteVideoBlur');
+
+    // Create blurred background video if it doesn't exist
+    if (!remoteVideoBlur) {
+        remoteVideoBlur = document.createElement('video');
+        remoteVideoBlur.id = 'remoteVideoBlur';
+        remoteVideoBlur.style.position = 'fixed';
+        remoteVideoBlur.style.top = '0';
+        remoteVideoBlur.style.left = '0';
+        remoteVideoBlur.style.width = '100vw'; // Full viewport width
+        remoteVideoBlur.style.height = '100vh'; // Full viewport height
+        remoteVideoBlur.style.filter = 'blur(20px)'; // Apply blur effect
+        remoteVideoBlur.style.transform = 'scale(1.1)'; // Slightly scale up the blurred background
+        remoteVideoBlur.style.zIndex = '9998'; // Place it behind the remote video
+        remoteVideoBlur.autoplay = true;
+        remoteVideoBlur.playsInline = true;
+        remoteVideoBlur.muted = true; // No sound for the blurred background
+        document.body.appendChild(remoteVideoBlur);
+    }
+    remoteVideoBlur.srcObject = stream; // Set the same stream for the blurred background
+
+    // Create main remote video
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
         remoteVideo.id = 'remoteVideo';
-        remoteVideo.style.position = 'fixed'; // Use fixed to make it cover the entire screen
+        remoteVideo.style.position = 'fixed';
         remoteVideo.style.top = '0';
         remoteVideo.style.left = '0';
         remoteVideo.style.width = '100vw'; // Full viewport width
         remoteVideo.style.height = '100vh'; // Full viewport height
+        remoteVideo.style.objectFit = 'cover'; // Stretch the video to cover the entire frame
         remoteVideo.style.border = '2px solid red';
-        remoteVideo.style.zIndex = '9999'; // Lower z-index so local video is on top
+        remoteVideo.style.zIndex = '9999'; // Keep it above the blurred background
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
         document.body.appendChild(remoteVideo);
     }
     remoteVideo.srcObject = stream;
 }
+
 
 
 // Show notification that user is calling
