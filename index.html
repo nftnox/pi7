@@ -909,9 +909,7 @@ async function startCall(userId, userName, stream) {
         ongoing: true,
         timestamp: new Date(),
         offer: null,
-        answer: null,
-        callerCandidates: [],
-        calleeCandidates: []
+        answer: null
     });
 
     showCallingNotification(userName);
@@ -927,14 +925,14 @@ async function startCall(userId, userName, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-
     // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
-    // Handle ICE candidates
+    // Handle ICE candidates from the caller
+    const callerCandidatesCollection = collection(callDoc, 'callerCandidates');
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            sendIceCandidate(event.candidate, callDoc.id, 'callerCandidates');
+            addDoc(callerCandidatesCollection, event.candidate.toJSON());
         }
     };
 
@@ -945,12 +943,12 @@ async function startCall(userId, userName, stream) {
         });
     };
 
-    // Create offer and set as local description
+    // Create offer and set local description
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    // Send offer
-    await sendOffer(offer, callDoc.id);
+    // Update the call document with the offer
+    await updateDoc(callDoc, { offer: { type: offer.type, sdp: offer.sdp } });
 
     // Listen for answer
     onSnapshot(callDoc, (docSnapshot) => {
@@ -962,7 +960,17 @@ async function startCall(userId, userName, stream) {
     });
 
     // Listen for callee's ICE candidates
-    setupIceCandidateListener(callDoc.id, peerConnection, 'calleeCandidates');
+    const calleeCandidatesCollection = collection(callDoc, 'calleeCandidates');
+    onSnapshot(calleeCandidatesCollection, snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                peerConnection.addIceCandidate(candidate).catch(e => {
+                    console.error('Error adding received ICE candidate', e);
+                });
+            }
+        });
+    });
 
     console.log("Call established at caller.");
 }
@@ -982,14 +990,14 @@ async function acceptCall(callId, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-
     // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
-    // Handle ICE candidates
+    // Handle ICE candidates from the callee
+    const calleeCandidatesCollection = collection(callRef, 'calleeCandidates');
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
-            sendIceCandidate(event.candidate, callId, 'calleeCandidates');
+            addDoc(calleeCandidatesCollection, event.candidate.toJSON());
         }
     };
 
@@ -1000,9 +1008,6 @@ async function acceptCall(callId, stream) {
         });
     };
 
-    // Listen for caller's ICE candidates
-    setupIceCandidateListener(callId, peerConnection, 'callerCandidates');
-
     // Get the offer
     const callDataDoc = await getDoc(callRef);
     const callData = callDataDoc.data();
@@ -1011,8 +1016,22 @@ async function acceptCall(callId, stream) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        sendAnswer(answer, callId);
+        // Update the call document with the answer
+        await updateDoc(callRef, { answer: { type: answer.type, sdp: answer.sdp } });
     }
+
+    // Listen for caller's ICE candidates
+    const callerCandidatesCollection = collection(callRef, 'callerCandidates');
+    onSnapshot(callerCandidatesCollection, snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                peerConnection.addIceCandidate(candidate).catch(e => {
+                    console.error('Error adding received ICE candidate', e);
+                });
+            }
+        });
+    });
 
     console.log("Call established at callee.");
 }
@@ -1028,12 +1047,12 @@ function addLocalVideo(stream) {
         localVideo.style.right = '10px';
         localVideo.style.width = '100px'; // Smaller local video
         localVideo.style.border = '2px solid yellow';
+        localVideo.autoplay = true;
+        localVideo.muted = true;
+        localVideo.playsInline = true;
         document.body.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
-    localVideo.autoplay = true;
-    localVideo.muted = true; // So they don't hear themselves
-    localVideo.playsInline = true;
 }
 
 // Function to add remote video
@@ -1047,11 +1066,11 @@ function addRemoteVideo(stream) {
         remoteVideo.style.left = '0';
         remoteVideo.style.width = '100%'; // Larger remote video
         remoteVideo.style.border = '2px solid red';
+        remoteVideo.autoplay = true;
+        remoteVideo.playsInline = true;
         document.body.appendChild(remoteVideo);
     }
     remoteVideo.srcObject = stream;
-    remoteVideo.autoplay = true;
-    remoteVideo.playsInline = true;
 }
 
 // Show notification that user is calling
@@ -1104,30 +1123,6 @@ function showIncomingCallNotification(callerName, callId) {
     });
 }
 
-// Function to send ICE candidate
-function sendIceCandidate(candidate, callId, candidateType) {
-    const callRef = doc(db, 'calls', callId);
-    updateDoc(callRef, {
-        [candidateType]: arrayUnion(candidate.toJSON())
-    });
-}
-
-// Function to send offer
-function sendOffer(offer, callId) {
-    const callRef = doc(db, 'calls', callId);
-    updateDoc(callRef, {
-        offer: offer.toJSON()
-    });
-}
-
-// Function to send answer
-function sendAnswer(answer, callId) {
-    const callRef = doc(db, 'calls', callId);
-    updateDoc(callRef, {
-        answer: answer.toJSON()
-    });
-}
-
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
@@ -1141,27 +1136,6 @@ function setupIncomingCallListener() {
                 }
             }
         });
-    });
-}
-
-// Function to set up ICE candidate listener
-function setupIceCandidateListener(callId, peerConnection, candidateType) {
-    const callRef = doc(db, 'calls', callId);
-    let candidatesAdded = {};
-    onSnapshot(callRef, (docSnapshot) => {
-        const data = docSnapshot.data();
-        if (data[candidateType]) {
-            data[candidateType].forEach(candidate => {
-                const candidateId = JSON.stringify(candidate);
-                if (!candidatesAdded[candidateId]) {
-                    candidatesAdded[candidateId] = true;
-                    const iceCandidate = new RTCIceCandidate(candidate);
-                    peerConnection.addIceCandidate(iceCandidate).catch(e => {
-                        console.error('Error adding received ICE candidate', e);
-                    });
-                }
-            });
-        }
     });
 }
 
