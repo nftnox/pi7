@@ -223,6 +223,16 @@ textarea {
             <span id="chat-header-title">Chat</span>
             <button id="close-chat">✕</button>
             <button id="back-to-users" style="display: none;">←</button> <!-- Dodajemo dugme za povratak -->
+            <div id="incoming-call" style="display: none;">
+                <p id="incoming-call-text"></p>
+                <button id="accept-call">Prihvati</button>
+                <button id="reject-call">Odbij</button>
+            </div>
+            
+            <div id="outgoing-call" style="display: none;">
+                <p id="outgoing-call-text"></p>
+            </div>
+            
             
         </div>
         
@@ -873,7 +883,6 @@ function openChatWithUser(userId) {
 
 
 
-
 let localStream;
 let remoteStream;
 let peerConnection;
@@ -884,13 +893,14 @@ const servers = {
     ]
 };
 
-// Pokretanje poziva
+// Funkcija za pokretanje poziva
 document.getElementById('call-user').addEventListener('click', async () => {
-    // Prvo preuzmi audio stream
+    const outgoingCallText = document.getElementById('outgoing-call-text');
+    outgoingCallText.innerText = `Zovem ${selectedUserName}...`;
+    document.getElementById('outgoing-call').style.display = 'block';
+
+    // Dobavi audio stream
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    
-    // Pokaži da je poziv u toku (vizualni feedback možeš dodati)
-    console.log("Poziv započet");
 
     peerConnection = new RTCPeerConnection(servers);
     peerConnection.addStream(localStream);
@@ -902,21 +912,84 @@ document.getElementById('call-user').addEventListener('click', async () => {
         audioElement.play();
     };
 
-    // Priprema za signalizaciju (exchange ICE candidates)
     peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-            // Pošalji ICE candidate drugom korisniku putem Firestore
             sendMessageToFirestore('ice-candidate', event.candidate);
         }
     };
 
-    // Kreiraj ponudu za poziv
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
 
-    // Pošalji ponudu u Firestore
     sendMessageToFirestore('offer', offer);
 });
+
+// Funkcija za prikazivanje primljenog poziva
+function showIncomingCall(requesterName) {
+    const incomingCallText = document.getElementById('incoming-call-text');
+    incomingCallText.innerText = `Zove vas ${requesterName}...`;
+    document.getElementById('incoming-call').style.display = 'block';
+
+    document.getElementById('accept-call').addEventListener('click', () => {
+        acceptCall(); // Prihvati poziv
+        document.getElementById('incoming-call').style.display = 'none';
+    });
+
+    document.getElementById('reject-call').addEventListener('click', () => {
+        rejectCall(); // Odbij poziv
+        document.getElementById('incoming-call').style.display = 'none';
+    });
+}
+
+// Prihvatanje poziva
+async function acceptCall() {
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    peerConnection.addStream(localStream);
+
+    peerConnection.ontrack = (event) => {
+        remoteStream = event.streams[0];
+        const audioElement = new Audio();
+        audioElement.srcObject = remoteStream;
+        audioElement.play();
+    };
+
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    sendMessageToFirestore('answer', answer);
+}
+
+// Odbijanje poziva
+function rejectCall() {
+    // Možemo poslati obavijest o odbijanju poziva ili samo zatvoriti prozor
+    console.log('Poziv odbijen.');
+    document.getElementById('incoming-call').style.display = 'none';
+}
+
+// Funkcija za primanje poziva
+async function receiveCall(offer) {
+    peerConnection = new RTCPeerConnection(servers);
+    peerConnection.addStream(localStream);
+
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendMessageToFirestore('ice-candidate', event.candidate);
+        }
+    };
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    showIncomingCall(offer.requester);
+}
+
+// Kada korisnik primi odgovor na poziv
+async function handleAnswer(answer) {
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+}
+
+// Kada se prime ICE kandidati
+async function handleIceCandidate(candidate) {
+    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+}
 
 // Funkcija za slanje podataka u Firestore
 async function sendMessageToFirestore(type, data) {
@@ -929,47 +1002,7 @@ async function sendMessageToFirestore(type, data) {
     });
 }
 
-// Kada korisnik primi ponudu za poziv
-async function receiveCall(offer) {
-    peerConnection = new RTCPeerConnection(servers);
-
-    peerConnection.ontrack = (event) => {
-        remoteStream = event.streams[0];
-        const audioElement = new Audio();
-        audioElement.srcObject = remoteStream;
-        audioElement.play();
-    };
-
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    peerConnection.addStream(localStream);
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            sendMessageToFirestore('ice-candidate', event.candidate);
-        }
-    };
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    // Pošalji odgovor (answer) u Firestore
-    sendMessageToFirestore('answer', answer);
-}
-
-// Kada korisnik primi odgovor na poziv
-async function handleAnswer(answer) {
-    const remoteDesc = new RTCSessionDescription(answer);
-    await peerConnection.setRemoteDescription(remoteDesc);
-}
-
-// Kada se prime ICE kandidati
-async function handleIceCandidate(candidate) {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-}
-
-// Osposobi slušanje za dolazne pozive putem Firestore
+// Slušanje za dolazne pozive i signalizacijske podatke putem Firestore
 onSnapshot(query(collection(db, 'callRequests'), where('recipient', '==', username)), (snapshot) => {
     snapshot.docChanges().forEach((change) => {
         if (change.type === 'added') {
@@ -984,6 +1017,7 @@ onSnapshot(query(collection(db, 'callRequests'), where('recipient', '==', userna
         }
     });
 });
+
 
 
 
