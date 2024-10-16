@@ -892,6 +892,9 @@ const configuration = {
     ]
 };
 
+// Add ringtone audio element
+const ringtone = new Audio('path/to/ringtone.mp3'); // You can replace this with your ringtone sound file
+
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -914,6 +917,13 @@ async function startCall(userId, userName, stream) {
 
     showCallingNotification(userName);
     console.log(`Calling user ${userName}.`);
+
+    // Show transparent background and calling info
+    showTransparentBackground(`Calling ${userName}`);
+
+    // Play ringtone
+    ringtone.loop = true;
+    ringtone.play();
 
     // Add local video
     addLocalVideo(stream);
@@ -1034,6 +1044,7 @@ async function acceptCall(callId, stream) {
     });
 
     console.log("Call established at callee.");
+    ringtone.pause(); // Stop ringtone when call is answered
 }
 
 // Function to add local video
@@ -1065,6 +1076,7 @@ function addRemoteVideo(stream) {
         remoteVideo.style.top = '0';
         remoteVideo.style.left = '0';
         remoteVideo.style.width = '100%'; // Larger remote video
+        remoteVideo.style.height = '100%';
         remoteVideo.style.border = '2px solid red';
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
@@ -1073,53 +1085,59 @@ function addRemoteVideo(stream) {
     remoteVideo.srcObject = stream;
 }
 
+// Function to show transparent background with text
+function showTransparentBackground(text) {
+    const overlay = document.createElement('div');
+    overlay.classList.add('transparent-overlay');
+    overlay.innerHTML = `<p>${text}</p>`;
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; // Transparent black background
+    overlay.style.color = 'white';
+    overlay.style.fontSize = '24px';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '1000';
+    document.body.appendChild(overlay);
+}
+
 // Show notification that user is calling
 function showCallingNotification(recipientName) {
     const callingNotification = document.createElement('div');
     callingNotification.classList.add('call-notification');
     callingNotification.innerHTML = `<p>Calling ${recipientName}</p>`;
-    callingNotification.style.position = 'absolute';
-    callingNotification.style.top = '20px';
-    callingNotification.style.right = '20px';
-    callingNotification.style.backgroundColor = '#ffcc00';
-    callingNotification.style.padding = '10px';
-    callingNotification.style.borderRadius = '5px';
-    document.body.appendChild(callingNotification);
+    showTransparentBackground(`Calling ${recipientName}`);
 }
 
-// Function to show incoming call notification
+// Function to show incoming call notification with green/red icons
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallNotification = document.createElement('div');
     incomingCallNotification.classList.add('call-notification');
     incomingCallNotification.innerHTML = `
         <div class="call-popup">
             <p>${callerName} is calling you</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Decline</button>
+            <button id="answer-call-${callId}" style="color: green;">&#x1F4DE;</button> <!-- Green phone icon -->
+            <button id="decline-call-${callId}" style="color: red;">&#x1F6AB;</button> <!-- Red phone icon -->
         </div>`;
-
-    incomingCallNotification.style.position = 'fixed';
-    incomingCallNotification.style.top = '20px';
-    incomingCallNotification.style.left = '50%';
-    incomingCallNotification.style.transform = 'translateX(-50%)';
-    incomingCallNotification.style.backgroundColor = '#ffcc00';
-    incomingCallNotification.style.padding = '20px';
-    incomingCallNotification.style.borderRadius = '5px';
-    incomingCallNotification.style.zIndex = '1000';
-
-    document.body.appendChild(incomingCallNotification);
+    
+    showTransparentBackground(`${callerName} is calling you`);
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
+        ringtone.pause(); // Stop ringtone when call is accepted
         document.body.removeChild(incomingCallNotification); // Remove notification
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
+        ringtone.pause(); // Stop ringtone
         document.body.removeChild(incomingCallNotification); // Remove notification
-        // Optionally, update call document to indicate call was declined
     });
 }
 
@@ -1133,6 +1151,8 @@ function setupIncomingCallListener() {
                 const data = doc.data();
                 if (!data.answered && data.recipientId === username) {
                     showIncomingCallNotification(data.caller, doc.id);
+                    ringtone.loop = true;
+                    ringtone.play(); // Play ringtone when receiving a call
                 }
             }
         });
@@ -1141,6 +1161,7 @@ function setupIncomingCallListener() {
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
