@@ -898,7 +898,7 @@ document.getElementById('start-call').addEventListener('click', async () => {
     await startCall(selectedUserId, selectedUserName, stream);
 });
 
-// Funkcija za započinjanje poziva (caller)
+// Funkcija za započinjanje poziva
 async function startCall(userId, userName, stream) {
     const peerConnection = new RTCPeerConnection(configuration);
 
@@ -916,6 +916,7 @@ async function startCall(userId, userName, stream) {
         recipientName: userName,
         offer: offer.toJSON(),
         answered: false,
+        candidates: [],
         timestamp: new Date()
     });
 
@@ -977,7 +978,7 @@ async function acceptCall(callId, stream) {
     console.log("Poziv prihvaćen.");
 }
 
-// Funkcija za slušanje odgovora na poziv
+// Slušaj za odgovor na poziv
 function listenForAnswer(callId, peerConnection) {
     const callRef = doc(db, 'calls', callId);
     onSnapshot(callRef, (doc) => {
