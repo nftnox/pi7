@@ -474,9 +474,6 @@ textarea {
 
 
 
-
-
-
         let isChatOpen = false; // Pratimo da li je chat otvoren
 let selectedUserName = ''; // Čuvamo ime trenutno odabranog korisnika
 let selectedUserId = ''; // Čuvamo ID trenutno odabranog korisnika
@@ -566,8 +563,6 @@ function showChatRequestPrompt(userName, userId) {
 
 
 
-
-
     
     // Postavi događaj za prihvatanje zahtjeva
     document.getElementById('accept-chat-request').addEventListener('click', () => {
@@ -647,12 +642,6 @@ async function acceptChatRequest(requestId) {
 
 
 
-
-
-
-
-
-
 // Event listener za desktop meni
 document.getElementById('chat-link').addEventListener('click', async () => {
     const chatModal = document.getElementById('chat-modal');
@@ -683,7 +672,6 @@ document.getElementById('toggle-menu').addEventListener('click', async (event) =
         }
     }
 });
-
 
 
 
@@ -879,157 +867,162 @@ function openChatWithUser(userId) {
 }
 
 
+let localStream = null;
+    let remoteStream = null;
+    let peerConnection = null;
+    const servers = {
+        iceServers: [
+            { urls: "stun:stun1.l.google.com:19302" },
+            { urls: "stun:stun2.l.google.com:19302" }
+        ]
+    };
+
+    
+    let callDocRef = null; // Referenca na dokument poziva
+
+    document.getElementById('phone-call').addEventListener('click', async () => {
+    await startCall(selectedUserName); // Pokreni poziv
+});
 
 
+    // Funkcija za uspostavljanje poziva
+    async function startCall(recipientName) {
+        const callDoc = await addDoc(collection(db, 'calls'), {
+            caller: username,
+            recipient: recipientName,
+            answer: false
+        });
+        callDocRef = callDoc;
 
+        document.getElementById('call-status').innerText = `Zovete ${recipientName}...`;
 
+        // Postavi WebRTC vezu
+        setupWebRTC();
 
-let localStream;
-let peerConnection;
-const servers = {
-    iceServers: [
-        {
-            urls: 'stun:stun.l.google.com:19302' // Google STUN server za WebRTC
-        }
-    ]
-};
+        // Slušaj odgovore primaoca
+        onSnapshot(callDocRef, (snapshot) => {
+            const callData = snapshot.data();
+            if (callData.answer) {
+                document.getElementById('call-status').innerText = `${recipientName} je prihvatio poziv.`;
+                startAudio();
+            }
+        });
+    }
 
-// Kada korisnik1 klikne na telefon da pozove korisnika2
-document.getElementById('phone-call').addEventListener('click', async () => {
-    const callToUsername = selectedUserName; // Korisnik s kojim si u chatu
+    // Funkcija za primanje poziva
+    function listenForIncomingCalls() {
+        const q = query(collection(db, 'calls'), where("recipient", "==", username), where("answer", "==", false));
+        onSnapshot(q, (snapshot) => {
+            snapshot.forEach(doc => {
+                const callData = doc.data();
+                const callerName = callData.caller;
 
-    if (callToUsername) {
-        // Upali mikrofon i pokreni lokalni audio stream
+                // Prikazi obavijest za dolazni poziv
+                showIncomingCall(callerName, doc.id);
+            });
+        });
+    }
+
+    // Prikazi prozor za dolazni poziv
+    function showIncomingCall(callerName, callId) {
+        const callPrompt = document.createElement('div');
+        callPrompt.classList.add('call-prompt');
+        callPrompt.style.position = 'fixed';
+        callPrompt.style.top = '50%';
+        callPrompt.style.left = '50%';
+        callPrompt.style.transform = 'translate(-50%, -50%)';
+        callPrompt.style.padding = '20px';
+        callPrompt.style.backgroundColor = 'white';
+        callPrompt.style.border = '1px solid black';
+        callPrompt.style.zIndex = '1000';
+
+        callPrompt.innerHTML = `
+            <p>Zove vas ${callerName}.</p>
+            <button id="answer-call">Prihvati</button>
+            <button id="decline-call">Odbij</button>
+        `;
+
+        document.body.appendChild(callPrompt);
+
+        document.getElementById('answer-call').addEventListener('click', async () => {
+            await answerCall(callId);
+            document.body.removeChild(callPrompt); // Ukloni prompt nakon prihvatanja
+        });
+
+        document.getElementById('decline-call').addEventListener('click', () => {
+            document.body.removeChild(callPrompt); // Ukloni prompt
+        });
+    }
+
+    // Funkcija za prihvatanje poziva
+    async function answerCall(callId) {
+        const callDoc = doc(db, 'calls', callId);
+        await updateDoc(callDoc, { answer: true });
+
+        document.getElementById('call-status').innerText = `Uspostavili ste vezu.`;
+
+        // Postavi WebRTC vezu
+        setupWebRTC();
+
+        // Početak audio poziva
+        startAudio();
+    }
+
+    // Postavljanje WebRTC peer-to-peer veze
+    async function setupWebRTC() {
+        peerConnection = new RTCPeerConnection(servers);
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-        // Prikazi obavještenje da zovete korisnika
-        showCallingNotification(callToUsername);
+        // Dodaj lokalni stream u peerConnection
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
 
-        // Kreiraj WebRTC PeerConnection
-        peerConnection = new RTCPeerConnection(servers);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        peerConnection.ontrack = (event) => {
+            if (!remoteStream) {
+                remoteStream = new MediaStream();
+                document.getElementById('remote-audio').srcObject = remoteStream;
+            }
+            remoteStream.addTrack(event.track);
+        };
 
-        // Kreiraj offer za poziv i postavi ga lokalno
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
-        // Pošalji offer preko Firestore-a
-        sendCallOffer(offer, callToUsername);
+        // Šalji ponudu drugom korisniku preko Firestore-a
+        await updateDoc(callDocRef, { offer: offer });
     }
-});
 
-// Funkcija za slanje offer-a preko Firestore-a
-async function sendCallOffer(offer, callToUsername) {
-    const callCollection = collection(db, 'calls');
-    await addDoc(callCollection, {
-        offer: JSON.stringify(offer),
-        caller: username, // Logovani korisnik (pozivalac)
-        recipient: callToUsername, // Korisnik koji prima poziv
-        type: 'offer',
-        timestamp: new Date()
-    });
-    console.log(`Poziv upućen korisniku: ${callToUsername}`);
-}
+    // Početak audio poziva nakon prihvatanja
+    async function startAudio() {
+        peerConnection.onicecandidate = async (event) => {
+            if (event.candidate) {
+                await updateDoc(callDocRef, { iceCandidates: peerConnection.localDescription });
+            }
+        };
 
-// Funkcija koja prati dolazne pozive i prikazuje obavještenja primaocu
-async function listenForIncomingCalls() {
-    const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('recipient', '==', username), where('type', '==', 'offer'));
+        // Primanje ponude i ICE kandidata
+        const offerSnapshot = await getDoc(callDocRef);
+        const offerData = offerSnapshot.data();
 
-    onSnapshot(q, async (snapshot) => {
-        snapshot.forEach(async (doc) => {
-            const callData = doc.data();
-            const offer = JSON.parse(callData.offer);
+        if (offerData.offer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offerData.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            await updateDoc(callDocRef, { answer: answer });
+        }
 
-            showIncomingCallNotification(callData.caller); // Prikazujemo obavještenje primaocu
+        peerConnection.onicecandidate = async (event) => {
+            if (event.candidate) {
+                await updateDoc(callDocRef, { iceCandidates: event.candidate });
+            }
+        };
+    }
 
-            document.getElementById('answer-call').addEventListener('click', async () => {
-                // Prihvati poziv
-                peerConnection = new RTCPeerConnection(servers);
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-                const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-
-                sendCallAnswer(answer, callData.caller); // Pošalji odgovor pozivaocu
-                document.body.removeChild(document.getElementById('incoming-call-notification')); // Ukloni obavještenje nakon prihvatanja
-            });
-
-            document.getElementById('decline-call').addEventListener('click', () => {
-                // Odbij poziv
-                console.log("Poziv odbijen.");
-                document.body.removeChild(document.getElementById('incoming-call-notification')); // Ukloni obavještenje
-            });
-        });
-    });
-}
-
-// Funkcija za slanje odgovora na poziv (answer)
-async function sendCallAnswer(answer, callerUsername) {
-    const callCollection = collection(db, 'calls');
-    await addDoc(callCollection, {
-        answer: JSON.stringify(answer),
-        caller: callerUsername, // Korisnik koji je započeo poziv
-        recipient: username, // Logovani korisnik (primalac poziva)
-        type: 'answer',
-        timestamp: new Date()
-    });
-    console.log("Poziv prihvaćen od strane:", username);
-}
-
-// Funkcija za prikazivanje obavještenja kad nekog zoveš
-function showCallingNotification(recipient) {
-    const notificationDiv = document.createElement('div');
-    notificationDiv.id = 'calling-notification';
-    notificationDiv.innerHTML = `Zovete ${recipient}...`;
-    document.body.appendChild(notificationDiv);
-}
-
-// Funkcija za prikazivanje obavještenja kada te neko zove
-function showIncomingCallNotification(caller) {
-    const notificationDiv = document.createElement('div');
-    notificationDiv.id = 'incoming-call-notification';
-    notificationDiv.innerHTML = `
-        <p>Zove vas ${caller}</p>
-        <button id="answer-call">Prihvati</button>
-        <button id="decline-call">Odbij</button>
-    `;
-    document.body.appendChild(notificationDiv);
-}
-
-// Slušaj dolazne pozive
-listenForIncomingCalls();
-
-// Funkcija koja prati dolazak odgovora na poziv
-async function listenForCallAnswer() {
-    const callsCollection = collection(db, 'calls');
-    const q = query(callsCollection, where('caller', '==', username), where('type', '==', 'answer'));
-
-    onSnapshot(q, async (snapshot) => {
-        snapshot.forEach(async (doc) => {
-            const callData = doc.data();
-            const answer = JSON.parse(callData.answer);
-
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-            console.log("Poziv je prihvaćen, možete razgovarati.");
-            document.body.removeChild(document.getElementById('calling-notification')); // Ukloni obavještenje o pozivu
-        });
-    });
-}
-
-// Slušaj odgovore na pozive
-listenForCallAnswer();
-
-
-
-
-
-
-
-
-
+    // Slušaj za dolazne pozive kad se učita stranica
+    window.onload = () => {
+        listenForIncomingCalls();
+    };
 
 
 
@@ -1040,6 +1033,10 @@ listenForCallAnswer();
             }, 5000);
         };
     </script>
+
+
+<audio id="remote-audio" controls autoplay></audio>
+<p id="call-status"></p>
 
 </body>
 </html>
