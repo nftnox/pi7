@@ -958,6 +958,8 @@ async function startCall(userId, userName, stream) {
             peerConnection.setRemoteDescription(answerDescription);
             // Remove the calling screen once the call is connected
             removeCallingScreen();
+            // Show end call button
+            showEndCallButton(peerConnection, stream);
         }
     });
 
@@ -992,7 +994,7 @@ async function acceptCall(callId, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-    // Add remote video
+    // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
     // Handle ICE candidates from the callee
@@ -1022,6 +1024,8 @@ async function acceptCall(callId, stream) {
         await updateDoc(callRef, { answer: { type: answer.type, sdp: answer.sdp } });
         // Remove the incoming call screen once the call is connected
         removeIncomingCallScreen();
+        // Show end call button
+        showEndCallButton(peerConnection, stream);
     }
 
     // Listen for caller's ICE candidates
@@ -1055,12 +1059,8 @@ function addLocalVideo(stream) {
         localVideo.muted = true;
         localVideo.playsInline = true;
         // Append to the calling screen or body
-        const callingScreen = document.getElementById('callingScreen');
-        if (callingScreen) {
-            callingScreen.appendChild(localVideo);
-        } else {
-            document.body.appendChild(localVideo);
-        }
+        const screen = document.getElementById('callingScreen') || document.body;
+        screen.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
 }
@@ -1077,16 +1077,11 @@ function addRemoteVideo(stream) {
         remoteVideo.style.width = '100%';
         remoteVideo.style.height = '100%';
         remoteVideo.style.objectFit = 'cover';
-        remoteVideo.style.zIndex = '-1';
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
         // Append to the calling screen or body
-        const callingScreen = document.getElementById('callingScreen');
-        if (callingScreen) {
-            callingScreen.appendChild(remoteVideo);
-        } else {
-            document.body.appendChild(remoteVideo);
-        }
+        const screen = document.getElementById('callingScreen') || document.body;
+        screen.appendChild(remoteVideo);
     }
     remoteVideo.srcObject = stream;
 }
@@ -1109,7 +1104,7 @@ function showCallingScreen(recipientName) {
     callingScreen.style.zIndex = '1000';
 
     const message = document.createElement('h2');
-    message.innerText = `Calling ${recipientName}...`;
+    message.innerText = `Zoveš ${recipientName}...`;
     message.style.marginBottom = '20px';
 
     callingScreen.appendChild(message);
@@ -1142,7 +1137,7 @@ function showIncomingCallScreen(callerName, callId) {
     incomingCallScreen.style.zIndex = '1000';
 
     const message = document.createElement('h2');
-    message.innerText = `${callerName} is calling you...`;
+    message.innerText = `${callerName} vas zove...`;
     message.style.marginBottom = '40px';
 
     const buttonsContainer = document.createElement('div');
@@ -1150,7 +1145,7 @@ function showIncomingCallScreen(callerName, callId) {
     buttonsContainer.style.gap = '20px';
 
     const answerButton = document.createElement('button');
-    answerButton.innerText = 'Answer';
+    answerButton.innerText = 'Prihvati';
     answerButton.style.padding = '15px 30px';
     answerButton.style.fontSize = '16px';
     answerButton.style.backgroundColor = 'green';
@@ -1164,7 +1159,7 @@ function showIncomingCallScreen(callerName, callId) {
     });
 
     const declineButton = document.createElement('button');
-    declineButton.innerText = 'Decline';
+    declineButton.innerText = 'Odbij';
     declineButton.style.padding = '15px 30px';
     declineButton.style.fontSize = '16px';
     declineButton.style.backgroundColor = 'red';
@@ -1191,6 +1186,43 @@ function removeIncomingCallScreen() {
     if (incomingCallScreen) {
         incomingCallScreen.parentNode.removeChild(incomingCallScreen);
     }
+}
+
+// Show end call button
+function showEndCallButton(peerConnection, localStream) {
+    const endCallButton = document.createElement('button');
+    endCallButton.id = 'endCallButton';
+    endCallButton.innerText = 'Prekini Poziv';
+    endCallButton.style.position = 'absolute';
+    endCallButton.style.bottom = '20px';
+    endCallButton.style.left = '50%';
+    endCallButton.style.transform = 'translateX(-50%)';
+    endCallButton.style.padding = '15px 30px';
+    endCallButton.style.fontSize = '16px';
+    endCallButton.style.backgroundColor = 'red';
+    endCallButton.style.color = '#fff';
+    endCallButton.style.border = 'none';
+    endCallButton.style.borderRadius = '5px';
+    endCallButton.style.cursor = 'pointer';
+    endCallButton.style.zIndex = '1000';
+
+    endCallButton.addEventListener('click', () => {
+        // Close the peer connection and streams
+        peerConnection.close();
+        localStream.getTracks().forEach(track => track.stop());
+
+        // Remove video elements
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) localVideo.parentNode.removeChild(localVideo);
+
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) remoteVideo.parentNode.removeChild(remoteVideo);
+
+        // Remove end call button
+        endCallButton.parentNode.removeChild(endCallButton);
+    });
+
+    document.body.appendChild(endCallButton);
 }
 
 // Function to set up listening for incoming calls
