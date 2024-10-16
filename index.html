@@ -894,12 +894,12 @@ const servers = {
     ]
 };
 
-// Kada klikneš na telefon, pokrećeš poziv
+// Kada korisnik1 klikne na telefon da pozove korisnika2
 document.getElementById('phone-call').addEventListener('click', async () => {
     const callToUsername = selectedUserName; // Korisnik s kojim si u chatu
 
     if (callToUsername) {
-        // Upali mikrofon i pokreni lokalni stream
+        // Upali mikrofon i pokreni lokalni audio stream
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
         // Prikazi obavještenje da zovete korisnika
