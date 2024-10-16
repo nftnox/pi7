@@ -1101,55 +1101,76 @@ function addRemoteVideo(stream) {
 
 
 
-// Show notification that user is calling
+// Show notification that user is calling (caller side)
 function showCallingNotification(recipientName) {
-    const callingNotification = document.createElement('div');
-    callingNotification.classList.add('call-notification');
-    callingNotification.innerHTML = `<p>Calling ${recipientName}</p>`;
-    callingNotification.style.position = 'absolute';
-    callingNotification.style.top = '20px';
-    callingNotification.style.right = '20px';
-    callingNotification.style.backgroundColor = '#ffcc00';
-    callingNotification.style.padding = '10px';
-    callingNotification.style.borderRadius = '5px';
-    document.body.appendChild(callingNotification);
+    const callingOverlay = document.createElement('div');
+    callingOverlay.classList.add('calling-overlay');
+    callingOverlay.innerHTML = `
+        <div class="calling-content">
+            <p>Calling ${recipientName}...</p>
+        </div>`;
+    
+    callingOverlay.style.position = 'fixed';
+    callingOverlay.style.top = '0';
+    callingOverlay.style.left = '0';
+    callingOverlay.style.width = '100vw';
+    callingOverlay.style.height = '100vh';
+    callingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; // Transparent dark background
+    callingOverlay.style.color = 'white';
+    callingOverlay.style.display = 'flex';
+    callingOverlay.style.flexDirection = 'column';
+    callingOverlay.style.justifyContent = 'center';
+    callingOverlay.style.alignItems = 'center';
+    callingOverlay.style.zIndex = '1000';
+    callingOverlay.style.fontSize = '24px';
+
+    document.body.appendChild(callingOverlay);
 }
 
-// Function to show incoming call notification
+
+// Function to show incoming call notification (callee side)
 function showIncomingCallNotification(callerName, callId) {
-    const incomingCallNotification = document.createElement('div');
-    incomingCallNotification.classList.add('call-notification');
-    incomingCallNotification.innerHTML = `
-        <div class="call-popup">
-            <p>${callerName} is calling you</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Decline</button>
+    const incomingCallOverlay = document.createElement('div');
+    incomingCallOverlay.classList.add('incoming-call-overlay');
+    incomingCallOverlay.innerHTML = `
+        <div class="incoming-call-content">
+            <p>${callerName} is calling you...</p>
+            <div class="incoming-call-buttons">
+                <button id="answer-call-${callId}" style="background-color: green; color: white; padding: 10px 20px; margin-right: 10px; border-radius: 5px;">Accept</button>
+                <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
+            </div>
         </div>`;
+    
+    incomingCallOverlay.style.position = 'fixed';
+    incomingCallOverlay.style.top = '0';
+    incomingCallOverlay.style.left = '0';
+    incomingCallOverlay.style.width = '100vw';
+    incomingCallOverlay.style.height = '100vh';
+    incomingCallOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)'; // Transparent dark background
+    incomingCallOverlay.style.color = 'white';
+    incomingCallOverlay.style.display = 'flex';
+    incomingCallOverlay.style.flexDirection = 'column';
+    incomingCallOverlay.style.justifyContent = 'center';
+    incomingCallOverlay.style.alignItems = 'center';
+    incomingCallOverlay.style.zIndex = '1000';
+    incomingCallOverlay.style.fontSize = '24px';
 
-    incomingCallNotification.style.position = 'fixed';
-    incomingCallNotification.style.top = '20px';
-    incomingCallNotification.style.left = '50%';
-    incomingCallNotification.style.transform = 'translateX(-50%)';
-    incomingCallNotification.style.backgroundColor = '#ffcc00';
-    incomingCallNotification.style.padding = '20px';
-    incomingCallNotification.style.borderRadius = '5px';
-    incomingCallNotification.style.zIndex = '1000';
-
-    document.body.appendChild(incomingCallNotification);
+    document.body.appendChild(incomingCallOverlay);
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
-        document.body.removeChild(incomingCallNotification); // Remove notification
+        document.body.removeChild(incomingCallOverlay); // Remove overlay
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.body.removeChild(incomingCallNotification); // Remove notification
+        document.body.removeChild(incomingCallOverlay); // Remove overlay
         // Optionally, update call document to indicate call was declined
     });
 }
+
 
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
@@ -1187,7 +1208,7 @@ setupIncomingCallListener();
                 loadUserData();
             }, 5000);
         };
-    </script>
+    </script>function showCallingNotification(recipientName) {
 
 </body>
 </html>
