@@ -912,11 +912,8 @@ async function startCall(userId, userName, stream) {
         answer: null
     });
 
-    showCallingNotification(userName);
+    showCallingScreen(userName);
     console.log(`Calling user ${userName}.`);
-
-    // Add local video
-    addLocalVideo(stream);
 
     const peerConnection = new RTCPeerConnection(configuration);
 
@@ -927,6 +924,9 @@ async function startCall(userId, userName, stream) {
     const remoteStream = new MediaStream();
     // Add remote stream to video element
     addRemoteVideo(remoteStream);
+
+    // Add local video
+    addLocalVideo(stream);
 
     // Handle ICE candidates from the caller
     const callerCandidatesCollection = collection(callDoc, 'callerCandidates');
@@ -956,6 +956,8 @@ async function startCall(userId, userName, stream) {
         if (data.answer && !peerConnection.currentRemoteDescription) {
             const answerDescription = new RTCSessionDescription(data.answer);
             peerConnection.setRemoteDescription(answerDescription);
+            // Remove the calling screen once the call is connected
+            removeCallingScreen();
         }
     });
 
@@ -990,7 +992,7 @@ async function acceptCall(callId, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-    // Add remote stream to video element
+    // Add remote video
     addRemoteVideo(remoteStream);
 
     // Handle ICE candidates from the callee
@@ -1018,6 +1020,8 @@ async function acceptCall(callId, stream) {
         await peerConnection.setLocalDescription(answer);
         // Update the call document with the answer
         await updateDoc(callRef, { answer: { type: answer.type, sdp: answer.sdp } });
+        // Remove the incoming call screen once the call is connected
+        removeIncomingCallScreen();
     }
 
     // Listen for caller's ICE candidates
@@ -1045,12 +1049,18 @@ function addLocalVideo(stream) {
         localVideo.style.position = 'absolute';
         localVideo.style.bottom = '10px';
         localVideo.style.right = '10px';
-        localVideo.style.width = '100px'; // Smaller local video
+        localVideo.style.width = '100px';
         localVideo.style.border = '2px solid yellow';
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
-        document.body.appendChild(localVideo);
+        // Append to the calling screen or body
+        const callingScreen = document.getElementById('callingScreen');
+        if (callingScreen) {
+            callingScreen.appendChild(localVideo);
+        } else {
+            document.body.appendChild(localVideo);
+        }
     }
     localVideo.srcObject = stream;
 }
@@ -1064,63 +1074,123 @@ function addRemoteVideo(stream) {
         remoteVideo.style.position = 'absolute';
         remoteVideo.style.top = '0';
         remoteVideo.style.left = '0';
-        remoteVideo.style.width = '100%'; // Larger remote video
-        remoteVideo.style.border = '2px solid red';
+        remoteVideo.style.width = '100%';
+        remoteVideo.style.height = '100%';
+        remoteVideo.style.objectFit = 'cover';
+        remoteVideo.style.zIndex = '-1';
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
-        document.body.appendChild(remoteVideo);
+        // Append to the calling screen or body
+        const callingScreen = document.getElementById('callingScreen');
+        if (callingScreen) {
+            callingScreen.appendChild(remoteVideo);
+        } else {
+            document.body.appendChild(remoteVideo);
+        }
     }
     remoteVideo.srcObject = stream;
 }
 
-// Show notification that user is calling
-function showCallingNotification(recipientName) {
-    const callingNotification = document.createElement('div');
-    callingNotification.classList.add('call-notification');
-    callingNotification.innerHTML = `<p>Calling ${recipientName}</p>`;
-    callingNotification.style.position = 'absolute';
-    callingNotification.style.top = '20px';
-    callingNotification.style.right = '20px';
-    callingNotification.style.backgroundColor = '#ffcc00';
-    callingNotification.style.padding = '10px';
-    callingNotification.style.borderRadius = '5px';
-    document.body.appendChild(callingNotification);
+// Show calling screen for the caller
+function showCallingScreen(recipientName) {
+    const callingScreen = document.createElement('div');
+    callingScreen.id = 'callingScreen';
+    callingScreen.style.position = 'fixed';
+    callingScreen.style.top = '0';
+    callingScreen.style.left = '0';
+    callingScreen.style.width = '100%';
+    callingScreen.style.height = '100%';
+    callingScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    callingScreen.style.display = 'flex';
+    callingScreen.style.flexDirection = 'column';
+    callingScreen.style.alignItems = 'center';
+    callingScreen.style.justifyContent = 'center';
+    callingScreen.style.color = '#fff';
+    callingScreen.style.zIndex = '1000';
+
+    const message = document.createElement('h2');
+    message.innerText = `Calling ${recipientName}...`;
+    message.style.marginBottom = '20px';
+
+    callingScreen.appendChild(message);
+    document.body.appendChild(callingScreen);
 }
 
-// Function to show incoming call notification
-function showIncomingCallNotification(callerName, callId) {
-    const incomingCallNotification = document.createElement('div');
-    incomingCallNotification.classList.add('call-notification');
-    incomingCallNotification.innerHTML = `
-        <div class="call-popup">
-            <p>${callerName} is calling you</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Decline</button>
-        </div>`;
+// Remove calling screen
+function removeCallingScreen() {
+    const callingScreen = document.getElementById('callingScreen');
+    if (callingScreen) {
+        callingScreen.parentNode.removeChild(callingScreen);
+    }
+}
 
-    incomingCallNotification.style.position = 'fixed';
-    incomingCallNotification.style.top = '20px';
-    incomingCallNotification.style.left = '50%';
-    incomingCallNotification.style.transform = 'translateX(-50%)';
-    incomingCallNotification.style.backgroundColor = '#ffcc00';
-    incomingCallNotification.style.padding = '20px';
-    incomingCallNotification.style.borderRadius = '5px';
-    incomingCallNotification.style.zIndex = '1000';
+// Show incoming call screen for the receiver
+function showIncomingCallScreen(callerName, callId) {
+    const incomingCallScreen = document.createElement('div');
+    incomingCallScreen.id = 'incomingCallScreen';
+    incomingCallScreen.style.position = 'fixed';
+    incomingCallScreen.style.top = '0';
+    incomingCallScreen.style.left = '0';
+    incomingCallScreen.style.width = '100%';
+    incomingCallScreen.style.height = '100%';
+    incomingCallScreen.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    incomingCallScreen.style.display = 'flex';
+    incomingCallScreen.style.flexDirection = 'column';
+    incomingCallScreen.style.alignItems = 'center';
+    incomingCallScreen.style.justifyContent = 'center';
+    incomingCallScreen.style.color = '#fff';
+    incomingCallScreen.style.zIndex = '1000';
 
-    document.body.appendChild(incomingCallNotification);
+    const message = document.createElement('h2');
+    message.innerText = `${callerName} is calling you...`;
+    message.style.marginBottom = '40px';
 
-    // Event for accepting the call
-    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.style.display = 'flex';
+    buttonsContainer.style.gap = '20px';
+
+    const answerButton = document.createElement('button');
+    answerButton.innerText = 'Answer';
+    answerButton.style.padding = '15px 30px';
+    answerButton.style.fontSize = '16px';
+    answerButton.style.backgroundColor = 'green';
+    answerButton.style.color = '#fff';
+    answerButton.style.border = 'none';
+    answerButton.style.borderRadius = '5px';
+    answerButton.style.cursor = 'pointer';
+    answerButton.addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
-        document.body.removeChild(incomingCallNotification); // Remove notification
     });
 
-    // Event for declining the call
-    document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
-        document.body.removeChild(incomingCallNotification); // Remove notification
+    const declineButton = document.createElement('button');
+    declineButton.innerText = 'Decline';
+    declineButton.style.padding = '15px 30px';
+    declineButton.style.fontSize = '16px';
+    declineButton.style.backgroundColor = 'red';
+    declineButton.style.color = '#fff';
+    declineButton.style.border = 'none';
+    declineButton.style.borderRadius = '5px';
+    declineButton.style.cursor = 'pointer';
+    declineButton.addEventListener('click', () => {
+        removeIncomingCallScreen();
         // Optionally, update call document to indicate call was declined
     });
+
+    buttonsContainer.appendChild(answerButton);
+    buttonsContainer.appendChild(declineButton);
+
+    incomingCallScreen.appendChild(message);
+    incomingCallScreen.appendChild(buttonsContainer);
+    document.body.appendChild(incomingCallScreen);
+}
+
+// Remove incoming call screen
+function removeIncomingCallScreen() {
+    const incomingCallScreen = document.getElementById('incomingCallScreen');
+    if (incomingCallScreen) {
+        incomingCallScreen.parentNode.removeChild(incomingCallScreen);
+    }
 }
 
 // Function to set up listening for incoming calls
@@ -1132,7 +1202,7 @@ function setupIncomingCallListener() {
                 const doc = change.doc;
                 const data = doc.data();
                 if (!data.answered && data.recipientId === username) {
-                    showIncomingCallNotification(data.caller, doc.id);
+                    showIncomingCallScreen(data.caller, doc.id);
                 }
             }
         });
@@ -1141,6 +1211,7 @@ function setupIncomingCallListener() {
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
