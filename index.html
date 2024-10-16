@@ -311,7 +311,7 @@ textarea {
         shareIcon.addEventListener('click', async () => {
             const shareData = {
                 title: 'Poziv za pridruživanje',
-                text: `Zdravo, pridruži mi se na https://nftnox.github.io/pi5/registracija.html. Moj kod je ${userParam}`
+                text: `Zdravo, pridruži mi se na https://nftnox.github.io/pi7/registracija.html Moj kod je ${userParam}`
             };
 
             try {
@@ -883,7 +883,9 @@ function openChatWithUser(userId) {
 
 
 
-// Configuration for WebRTC remains the same
+// Updated code with UI enhancements as per your request
+
+// Configuration for WebRTC
 const configuration = {
     iceServers: [
         {
@@ -892,10 +894,15 @@ const configuration = {
     ]
 };
 
+// Global variables to hold the peer connection and streams
+let peerConnection = null;
+let localStream = null;
+let remoteStream = null;
+
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    await startCall(selectedUserId, selectedUserName, stream);
+    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    await startCall(selectedUserId, selectedUserName, localStream);
 });
 
 // Function to start the call
@@ -912,22 +919,18 @@ async function startCall(userId, userName, stream) {
         answer: null
     });
 
-    showCallingOverlay(userName); // Now displays whom the caller is calling
+    showCallingNotification(userName);
     console.log(`Calling user ${userName}.`);
 
-    // Show connecting overlay
-    showConnectingOverlay();
-
-    // Add local video
-    addLocalVideo(stream);
-
-    const peerConnection = new RTCPeerConnection(configuration);
+    // Create peer connection
+    peerConnection = new RTCPeerConnection(configuration);
 
     // Add local tracks to peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
     // Create remote stream
-    const remoteStream = new MediaStream();
+    remoteStream = new MediaStream();
+
     // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
@@ -944,11 +947,6 @@ async function startCall(userId, userName, stream) {
         event.streams[0].getTracks().forEach(track => {
             remoteStream.addTrack(track);
         });
-        // Remove connecting and calling overlays when remote stream starts
-        removeConnectingOverlay();
-        removeCallingOverlay();
-        // Add end call button
-        addEndCallButton(peerConnection, stream, remoteStream, callDoc.id);
     };
 
     // Create offer and set local description
@@ -964,14 +962,9 @@ async function startCall(userId, userName, stream) {
         if (data.answer && !peerConnection.currentRemoteDescription) {
             const answerDescription = new RTCSessionDescription(data.answer);
             peerConnection.setRemoteDescription(answerDescription);
-        }
-
-        // Listen for call ending
-        if (!data.ongoing) {
-            // The call has ended
-            peerConnection.close();
-            cleanupCall(stream, remoteStream);
-            console.log('Call ended by remote user.');
+            // Call is established, hide the calling notification and show end call button
+            hideOverlay();
+            showEndCallButton(callDoc.id);
         }
     });
 
@@ -996,10 +989,8 @@ async function acceptCall(callId, stream) {
     const callRef = doc(db, 'calls', callId);
     await updateDoc(callRef, { answered: true });
 
-    // Show connecting overlay
-    showConnectingOverlay();
-
-    const peerConnection = new RTCPeerConnection(configuration);
+    // Create peer connection
+    peerConnection = new RTCPeerConnection(configuration);
 
     // Add local tracks to peer connection
     stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
@@ -1008,8 +999,8 @@ async function acceptCall(callId, stream) {
     addLocalVideo(stream);
 
     // Create remote stream
-    const remoteStream = new MediaStream();
-    // Add remote video to video element
+    remoteStream = new MediaStream();
+    // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
     // Handle ICE candidates from the callee
@@ -1025,10 +1016,6 @@ async function acceptCall(callId, stream) {
         event.streams[0].getTracks().forEach(track => {
             remoteStream.addTrack(track);
         });
-        // Remove connecting overlay when remote stream starts
-        removeConnectingOverlay();
-        // Add end call button
-        addEndCallButton(peerConnection, stream, remoteStream, callId);
     };
 
     // Get the offer
@@ -1041,6 +1028,9 @@ async function acceptCall(callId, stream) {
         await peerConnection.setLocalDescription(answer);
         // Update the call document with the answer
         await updateDoc(callRef, { answer: { type: answer.type, sdp: answer.sdp } });
+        // Call is established, hide the incoming call notification and show end call button
+        hideOverlay();
+        showEndCallButton(callId);
     }
 
     // Listen for caller's ICE candidates
@@ -1056,24 +1046,11 @@ async function acceptCall(callId, stream) {
         });
     });
 
-    // Listen for call ending
-    onSnapshot(callRef, (docSnapshot) => {
-        const data = docSnapshot.data();
-        if (!data.ongoing) {
-            // The call has ended
-            peerConnection.close();
-            cleanupCall(stream, remoteStream);
-            console.log('Call ended by remote user.');
-        }
-    });
-
     console.log("Call established at callee.");
 }
 
 // Function to add local video
 function addLocalVideo(stream) {
-    const videoCallContainer = createVideoCallContainer();
-
     let localVideo = document.getElementById('localVideo');
     if (!localVideo) {
         localVideo = document.createElement('video');
@@ -1081,254 +1058,161 @@ function addLocalVideo(stream) {
         localVideo.style.position = 'absolute';
         localVideo.style.bottom = '10px';
         localVideo.style.right = '10px';
-        localVideo.style.width = '150px'; // Smaller local video
+        localVideo.style.width = '30%'; // Smaller local video
         localVideo.style.border = '2px solid yellow';
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
-        videoCallContainer.appendChild(localVideo);
+        document.getElementById('remoteVideoContainer').appendChild(localVideo);
     }
     localVideo.srcObject = stream;
 }
 
 // Function to add remote video
 function addRemoteVideo(stream) {
-    const videoCallContainer = createVideoCallContainer();
-
     let remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
         remoteVideo.id = 'remoteVideo';
-        remoteVideo.style.position = 'absolute';
-        remoteVideo.style.top = '0';
-        remoteVideo.style.left = '0';
-        remoteVideo.style.width = '100%';
+        remoteVideo.style.width = '100%'; // Full screen
         remoteVideo.style.height = '100%';
         remoteVideo.style.objectFit = 'cover';
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
-        videoCallContainer.appendChild(remoteVideo);
+
+        // Create a container for remote video and local video
+        const remoteVideoContainer = document.createElement('div');
+        remoteVideoContainer.id = 'remoteVideoContainer';
+        remoteVideoContainer.style.position = 'fixed';
+        remoteVideoContainer.style.top = '0';
+        remoteVideoContainer.style.left = '0';
+        remoteVideoContainer.style.width = '100%';
+        remoteVideoContainer.style.height = '100%';
+        remoteVideoContainer.style.zIndex = '999'; // On top
+
+        remoteVideoContainer.appendChild(remoteVideo);
+
+        document.body.appendChild(remoteVideoContainer);
+
+        // Add local video within this container
+        addLocalVideo(localStream);
     }
     remoteVideo.srcObject = stream;
 }
 
-// Function to create video call container
-function createVideoCallContainer() {
-    let videoCallContainer = document.getElementById('videoCallContainer');
-    if (!videoCallContainer) {
-        videoCallContainer = document.createElement('div');
-        videoCallContainer.id = 'videoCallContainer';
-        videoCallContainer.style.position = 'fixed';
-        videoCallContainer.style.top = '0';
-        videoCallContainer.style.left = '0';
-        videoCallContainer.style.width = '100%';
-        videoCallContainer.style.height = '100%';
-        videoCallContainer.style.backgroundColor = '#000';
-        videoCallContainer.style.zIndex = '1000';
-        document.body.appendChild(videoCallContainer);
+// Show overlay during call setup
+function showOverlay(message) {
+    let overlay = document.getElementById('callOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'callOverlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)'; // Transparent background
+        overlay.style.zIndex = '1000';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.color = '#fff';
+        overlay.style.fontSize = '24px';
+
+        document.body.appendChild(overlay);
     }
-    return videoCallContainer;
+    overlay.innerHTML = message;
 }
 
-// Function to add end call button
-function addEndCallButton(peerConnection, localStream, remoteStream, callId) {
-    const videoCallContainer = createVideoCallContainer();
-
-    let endCallButton = document.getElementById('endCallButton');
-    if (!endCallButton) {
-        endCallButton = document.createElement('button');
-        endCallButton.id = 'endCallButton';
-        endCallButton.innerHTML = 'End Call';
-        endCallButton.style.position = 'absolute';
-        endCallButton.style.bottom = '20px';
-        endCallButton.style.left = '50%';
-        endCallButton.style.transform = 'translateX(-50%)';
-        endCallButton.style.padding = '10px 20px';
-        endCallButton.style.fontSize = '16px';
-        endCallButton.style.backgroundColor = 'red';
-        endCallButton.style.color = '#fff';
-        endCallButton.style.border = 'none';
-        endCallButton.style.borderRadius = '5px';
-        endCallButton.style.cursor = 'pointer';
-
-        videoCallContainer.appendChild(endCallButton);
-    }
-
-    endCallButton.addEventListener('click', async () => {
-        // Close the peer connection
-        peerConnection.close();
-
-        // Stop all local and remote tracks
-        cleanupCall(localStream, remoteStream);
-
-        // Update the call document to indicate the call has ended
-        const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, { ongoing: false });
-
-        console.log('Call ended by user.');
-    });
-}
-
-// Function to clean up after call ends
-function cleanupCall(localStream, remoteStream) {
-    // Remove video elements
-    const videoCallContainer = document.getElementById('videoCallContainer');
-    if (videoCallContainer) {
-        document.body.removeChild(videoCallContainer);
-    }
-
-    // Stop all local tracks
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-    }
-
-    // Stop all remote tracks
-    if (remoteStream) {
-        remoteStream.getTracks().forEach(track => track.stop());
+// Hide overlay
+function hideOverlay() {
+    const overlay = document.getElementById('callOverlay');
+    if (overlay) {
+        document.body.removeChild(overlay);
     }
 }
 
-// Show calling overlay when initiating a call
-function showCallingOverlay(recipientName) {
-    // Create full-screen overlay
-    const callingOverlay = document.createElement('div');
-    callingOverlay.id = 'callingOverlay';
-    callingOverlay.style.position = 'fixed';
-    callingOverlay.style.top = '0';
-    callingOverlay.style.left = '0';
-    callingOverlay.style.width = '100%';
-    callingOverlay.style.height = '100%';
-    callingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    callingOverlay.style.display = 'flex';
-    callingOverlay.style.flexDirection = 'column';
-    callingOverlay.style.alignItems = 'center';
-    callingOverlay.style.justifyContent = 'center';
-    callingOverlay.style.zIndex = '1000';
-
-    // Recipient name
-    const recipientNameElement = document.createElement('h2');
-    recipientNameElement.textContent = `Calling ${recipientName}...`;
-    recipientNameElement.style.color = '#fff';
-    recipientNameElement.style.marginBottom = '20px';
-
-    callingOverlay.appendChild(recipientNameElement);
-
-    document.body.appendChild(callingOverlay);
-}
-
-// Remove calling overlay
-function removeCallingOverlay() {
-    const callingOverlay = document.getElementById('callingOverlay');
-    if (callingOverlay) {
-        document.body.removeChild(callingOverlay);
-    }
+// Show notification that user is calling
+function showCallingNotification(recipientName) {
+    showOverlay(`<p>Calling ${recipientName}...</p>`);
 }
 
 // Function to show incoming call notification
 function showIncomingCallNotification(callerName, callId) {
-    // Create full-screen overlay
-    const incomingCallOverlay = document.createElement('div');
-    incomingCallOverlay.classList.add('incoming-call-overlay');
-    incomingCallOverlay.style.position = 'fixed';
-    incomingCallOverlay.style.top = '0';
-    incomingCallOverlay.style.left = '0';
-    incomingCallOverlay.style.width = '100%';
-    incomingCallOverlay.style.height = '100%';
-    incomingCallOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    incomingCallOverlay.style.display = 'flex';
-    incomingCallOverlay.style.flexDirection = 'column';
-    incomingCallOverlay.style.alignItems = 'center';
-    incomingCallOverlay.style.justifyContent = 'center';
-    incomingCallOverlay.style.zIndex = '1000';
-
-    // Caller name
-    const callerNameElement = document.createElement('h2');
-    callerNameElement.textContent = `${callerName} is calling you`;
-    callerNameElement.style.color = '#fff';
-    callerNameElement.style.marginBottom = '20px';
-
-    // Buttons container
-    const buttonsContainer = document.createElement('div');
-    buttonsContainer.style.display = 'flex';
-    buttonsContainer.style.gap = '20px';
-
-    // Answer button
-    const answerButton = document.createElement('button');
-    answerButton.id = `answer-call-${callId}`;
-    answerButton.textContent = 'Answer';
-    answerButton.style.padding = '10px 20px';
-    answerButton.style.fontSize = '16px';
-    answerButton.style.backgroundColor = 'green';
-    answerButton.style.color = '#fff';
-    answerButton.style.border = 'none';
-    answerButton.style.borderRadius = '5px';
-    answerButton.style.cursor = 'pointer';
-
-    // Decline button
-    const declineButton = document.createElement('button');
-    declineButton.id = `decline-call-${callId}`;
-    declineButton.textContent = 'Decline';
-    declineButton.style.padding = '10px 20px';
-    declineButton.style.fontSize = '16px';
-    declineButton.style.backgroundColor = 'red';
-    declineButton.style.color = '#fff';
-    declineButton.style.border = 'none';
-    declineButton.style.borderRadius = '5px';
-    declineButton.style.cursor = 'pointer';
-
-    buttonsContainer.appendChild(answerButton);
-    buttonsContainer.appendChild(declineButton);
-
-    // Append elements to overlay
-    incomingCallOverlay.appendChild(callerNameElement);
-    incomingCallOverlay.appendChild(buttonsContainer);
-
-    // Append overlay to body
-    document.body.appendChild(incomingCallOverlay);
+    showOverlay(`
+        <div style="text-align: center;">
+            <p>${callerName} is calling you</p>
+            <button id="answer-call-${callId}" style="margin: 10px; padding: 10px; font-size: 18px; background-color: green; color: white; border: none; border-radius: 5px;">Accept</button>
+            <button id="decline-call-${callId}" style="margin: 10px; padding: 10px; font-size: 18px; background-color: red; color: white; border: none; border-radius: 5px;">Decline</button>
+        </div>
+    `);
 
     // Event for accepting the call
-    answerButton.addEventListener('click', async () => {
-        // Remove notification
-        document.body.removeChild(incomingCallOverlay);
-
-        // Start the call
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        await acceptCall(callId, stream);
+    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        await acceptCall(callId, localStream);
     });
 
     // Event for declining the call
-    declineButton.addEventListener('click', async () => {
-        // Remove notification
-        document.body.removeChild(incomingCallOverlay);
-
+    document.getElementById(`decline-call-${callId}`).addEventListener('click', async () => {
         // Update call document to indicate call was declined
         const callRef = doc(db, 'calls', callId);
-        await updateDoc(callRef, { ongoing: false });
-
-        // Optionally, notify the caller
+        await updateDoc(callRef, { answered: false, ongoing: false });
+        hideOverlay();
     });
 }
 
-// Function to show connecting overlay
-function showConnectingOverlay() {
-    const connectingOverlay = document.createElement('div');
-    connectingOverlay.id = 'connectingOverlay';
-    connectingOverlay.style.position = 'fixed';
-    connectingOverlay.style.top = '0';
-    connectingOverlay.style.left = '0';
-    connectingOverlay.style.width = '100%';
-    connectingOverlay.style.height = '100%';
-    connectingOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    connectingOverlay.style.zIndex = '999';
-    document.body.appendChild(connectingOverlay);
-}
+// Function to show End Call button
+function showEndCallButton(callId) {
+    let endCallButton = document.getElementById('endCallButton');
+    if (!endCallButton) {
+        endCallButton = document.createElement('button');
+        endCallButton.id = 'endCallButton';
+        endCallButton.style.position = 'fixed';
+        endCallButton.style.bottom = '20px';
+        endCallButton.style.left = '50%';
+        endCallButton.style.transform = 'translateX(-50%)';
+        endCallButton.style.padding = '15px';
+        endCallButton.style.fontSize = '18px';
+        endCallButton.style.backgroundColor = 'red';
+        endCallButton.style.color = 'white';
+        endCallButton.style.border = 'none';
+        endCallButton.style.borderRadius = '50%';
+        endCallButton.style.zIndex = '1001'; // On top
 
-// Function to remove connecting overlay
-function removeConnectingOverlay() {
-    const connectingOverlay = document.getElementById('connectingOverlay');
-    if (connectingOverlay) {
-        document.body.removeChild(connectingOverlay);
+        // Add an icon or text
+        endCallButton.innerHTML = 'End Call';
+
+        document.body.appendChild(endCallButton);
     }
+
+    endCallButton.onclick = async () => {
+        // Close the peer connection
+        if (peerConnection) {
+            peerConnection.close();
+        }
+        // Stop all local tracks
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        // Remove video elements
+        const remoteVideoContainer = document.getElementById('remoteVideoContainer');
+        if (remoteVideoContainer) {
+            document.body.removeChild(remoteVideoContainer);
+        }
+        // Remove end call button
+        document.body.removeChild(endCallButton);
+
+        // Update call document to indicate call has ended
+        const callRef = doc(db, 'calls', callId);
+        await updateDoc(callRef, { ongoing: false });
+
+        // Reset variables
+        peerConnection = null;
+        localStream = null;
+        remoteStream = null;
+    };
 }
 
 // Function to set up listening for incoming calls
@@ -1343,8 +1227,46 @@ function setupIncomingCallListener() {
                     showIncomingCallNotification(data.caller, doc.id);
                 }
             }
+            // Optionally handle call ended or declined
+            if (change.type === 'modified') {
+                const doc = change.doc;
+                const data = doc.data();
+                if (!data.ongoing && peerConnection) {
+                    // The call has ended
+                    endCallCleanup();
+                }
+            }
         });
     });
+}
+
+// Cleanup function when call ends
+function endCallCleanup() {
+    // Close the peer connection
+    if (peerConnection) {
+        peerConnection.close();
+    }
+    // Stop all local tracks
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+    }
+    // Remove video elements
+    const remoteVideoContainer = document.getElementById('remoteVideoContainer');
+    if (remoteVideoContainer) {
+        document.body.removeChild(remoteVideoContainer);
+    }
+    // Remove end call button
+    const endCallButton = document.getElementById('endCallButton');
+    if (endCallButton) {
+        document.body.removeChild(endCallButton);
+    }
+    // Hide any overlays
+    hideOverlay();
+
+    // Reset variables
+    peerConnection = null;
+    localStream = null;
+    remoteStream = null;
 }
 
 // Initialize listening for incoming calls
