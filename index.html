@@ -894,9 +894,9 @@ const servers = {
     ]
 };
 
-// Funkcija koja pokreće poziv kada klikneš na telefon
+// Kada klikneš na telefon, pokrećeš poziv
 document.getElementById('phone-call').addEventListener('click', async () => {
-    const callToUsername = selectedUserName; // Korisnik s kojim si u chatu (primaoc)
+    const callToUsername = selectedUserName; // Korisnik s kojim si u chatu
 
     if (callToUsername) {
         // Upali mikrofon i pokreni lokalni stream
@@ -954,6 +954,7 @@ async function listenForIncomingCalls() {
                 await peerConnection.setLocalDescription(answer);
 
                 sendCallAnswer(answer, callData.caller); // Pošalji odgovor pozivaocu
+                document.body.removeChild(document.getElementById('incoming-call-notification')); // Ukloni obavještenje nakon prihvatanja
             });
 
             document.getElementById('decline-call').addEventListener('click', () => {
