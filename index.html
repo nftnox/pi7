@@ -1047,6 +1047,7 @@ function addLocalVideo(stream) {
         localVideo.style.right = '10px';
         localVideo.style.width = '100px'; // Smaller local video
         localVideo.style.border = '2px solid yellow';
+        localVideo.style.zIndex = '10000'; // Higher z-index to appear over remote video
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
@@ -1061,12 +1062,13 @@ function addRemoteVideo(stream) {
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
         remoteVideo.id = 'remoteVideo';
-        remoteVideo.style.position = 'absolute';
+        remoteVideo.style.position = 'fixed'; // Use fixed to make it cover the entire screen
         remoteVideo.style.top = '0';
         remoteVideo.style.left = '0';
-        remoteVideo.style.width = '100%'; // Full screen width
-        remoteVideo.style.height = '100%'; // Full screen height
+        remoteVideo.style.width = '100vw'; // Full viewport width
+        remoteVideo.style.height = '100vh'; // Full viewport height
         remoteVideo.style.border = '2px solid red';
+        remoteVideo.style.zIndex = '9999'; // Lower z-index so local video is on top
         remoteVideo.autoplay = true;
         remoteVideo.playsInline = true;
         document.body.appendChild(remoteVideo);
