@@ -1022,6 +1022,41 @@ function showCallingNotification(recipientName) {
     document.body.appendChild(callingNotification);
 }
 
+// Funkcija za prikazivanje dolaznog poziva
+function showIncomingCallNotification(callerName, callId) {
+    const incomingCallNotification = document.createElement('div');
+    incomingCallNotification.classList.add('call-notification');
+    incomingCallNotification.innerHTML = `
+        <div class="call-popup">
+            <p>Zove vas ${callerName}</p>
+            <button id="answer-call-${callId}">Answer</button>
+            <button id="decline-call-${callId}">Not Answer</button>
+        </div>`;
+    
+    incomingCallNotification.style.position = 'fixed';
+    incomingCallNotification.style.top = '20px';
+    incomingCallNotification.style.left = '50%';
+    incomingCallNotification.style.transform = 'translateX(-50%)';
+    incomingCallNotification.style.backgroundColor = '#ffcc00';
+    incomingCallNotification.style.padding = '20px';
+    incomingCallNotification.style.borderRadius = '5px';
+    incomingCallNotification.style.zIndex = '1000';
+
+    document.body.appendChild(incomingCallNotification);
+
+    // Događaj za prihvatanje poziva
+    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        await acceptCall(callId, stream);
+        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
+    });
+
+    // Događaj za odbijanje poziva
+    document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
+        document.body.removeChild(incomingCallNotification); // Ukloni obaveštenje
+    });
+}
+
 // Funkcija za prihvatanje poziva
 async function acceptCall(callId, stream) {
     const callRef = doc(db, 'calls', callId);
