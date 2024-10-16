@@ -912,7 +912,7 @@ async function startCall(userId, userName, stream) {
         answer: null
     });
 
-    showCallingOverlay(userName);
+    showCallingOverlay(userName); // Now displays whom the caller is calling
     console.log(`Calling user ${userName}.`);
 
     // Show connecting overlay
@@ -1009,7 +1009,7 @@ async function acceptCall(callId, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-    // Add remote stream to video element
+    // Add remote video to video element
     addRemoteVideo(remoteStream);
 
     // Handle ICE candidates from the callee
