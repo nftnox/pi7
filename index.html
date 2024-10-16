@@ -1129,8 +1129,12 @@ function showCallingNotification(recipientName) {
     document.body.appendChild(callingOverlay);
 }
 
-// Function to show incoming call notification (callee side)
+// Function to show incoming call notification (callee side) with ringtone
 function showIncomingCallNotification(callerName, callId) {
+    const ringtone = new Audio('images/ringtone.mp3'); // Ringtone file
+    ringtone.loop = true; // Loop the ringtone
+    ringtone.play(); // Start playing ringtone
+
     const incomingCallOverlay = document.createElement('div');
     incomingCallOverlay.classList.add('incoming-call-overlay');
     incomingCallOverlay.innerHTML = 
@@ -1163,11 +1167,13 @@ function showIncomingCallNotification(callerName, callId) {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
         document.body.removeChild(incomingCallOverlay); // Remove overlay
+        ringtone.pause(); // Stop ringtone
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
         document.body.removeChild(incomingCallOverlay); // Remove overlay
+        ringtone.pause(); // Stop ringtone
         // Optionally, update call document to indicate call was declined
     });
 }
@@ -1217,6 +1223,7 @@ function setupIncomingCallListener() {
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
