@@ -1026,11 +1026,11 @@ function showCallingNotification(recipientName) {
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallNotification = document.createElement('div');
     incomingCallNotification.classList.add('call-notification');
-    incomingCallNotification.innerHTML = `
-        <div class="call-popup">
+    incomingCallNotification.innerHTML = 
+        `<div class="call-popup">
             <p>Zove vas ${callerName}</p>
-            <button id="answer-call-${callId}">Answer</button>
-            <button id="decline-call-${callId}">Not Answer</button>
+            <button id="answer-call-${callId}">Prihvati</button>
+            <button id="decline-call-${callId}">Odbij</button>
         </div>`;
     
     incomingCallNotification.style.position = 'fixed';
@@ -1124,14 +1124,14 @@ function setupIncomingCallListener() {
     onSnapshot(callRef, (snapshot) => {
         snapshot.forEach((doc) => {
             const data = doc.data();
-            if (!data.answered && data.recipientId === username) {
+            if (data.recipientId === userId && !data.answered) {
                 showIncomingCallNotification(data.caller, doc.id);
             }
         });
     });
 }
 
-// Funkcija za postavljanje ICE kandidata
+// Slušaj ICE kandidate
 function setupIceCandidateListener(callId, peerConnection) {
     const callRef = doc(db, 'calls', callId);
     onSnapshot(callRef, (doc) => {
@@ -1144,8 +1144,9 @@ function setupIceCandidateListener(callId, peerConnection) {
     });
 }
 
-// Inicijalizuj praćenje dolaznih poziva
+// Pozovi ovu funkciju na početku aplikacije
 setupIncomingCallListener();
+
 
 
 
