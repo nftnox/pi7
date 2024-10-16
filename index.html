@@ -937,12 +937,10 @@ async function startCall(userId, userName, stream) {
     // Pošalji ponudu
     await sendOffer(offer, callDoc.id);
 
-    // Dodaj prozor za remote video kod pošiljaoca
-    addRemoteVideoPlaceholder();
-
     // Slušaj dolazne trackove od drugog korisnika
     peerConnection.ontrack = event => {
         if (event.streams && event.streams[0]) {
+            // Kada dobijemo stream, dodajemo ga u video element
             addRemoteVideo(event.streams[0]);  // Dodaj remote video
         }
     };
@@ -971,8 +969,8 @@ function addLocalVideo(stream) {
     localVideo.muted = true; // Da ne čuje sebe
 }
 
-// Funkcija za dodavanje placeholdera za remote video
-function addRemoteVideoPlaceholder() {
+// Funkcija za dodavanje remote videa
+function addRemoteVideo(stream) {
     let remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
         remoteVideo = document.createElement('video');
@@ -984,27 +982,7 @@ function addRemoteVideoPlaceholder() {
         remoteVideo.style.border = '2px solid red';
         document.body.appendChild(remoteVideo);
     }
-    // Prazan stream placeholder dok ne dođe remote stream
-    remoteVideo.autoplay = true;
-}
-
-// Funkcija za dodavanje remote videa
-function addRemoteVideo(stream) {
-    let remoteVideo = document.getElementById('remoteVideo');
-    if (remoteVideo) {
-        remoteVideo.srcObject = stream;
-    } else {
-        // Ako remote video nije kreiran, kreiraj ga
-        remoteVideo = document.createElement('video');
-        remoteVideo.id = 'remoteVideo';
-        remoteVideo.style.position = 'absolute';
-        remoteVideo.style.top = '0';
-        remoteVideo.style.left = '0';
-        remoteVideo.style.width = '100%'; // Veći remote video
-        remoteVideo.style.border = '2px solid red';
-        remoteVideo.srcObject = stream;
-        document.body.appendChild(remoteVideo);
-    }
+    remoteVideo.srcObject = stream; // Ažuriramo remote video sa stream-om
     remoteVideo.autoplay = true;
 }
 
@@ -1078,6 +1056,7 @@ async function acceptCall(callId, stream) {
 
     peerConnection.ontrack = event => {
         if (event.streams && event.streams[0]) {
+            // Kada dobijemo stream, dodajemo ga u video element
             addRemoteVideo(event.streams[0]);  // Dodaj remote video
         }
     };
