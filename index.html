@@ -1103,7 +1103,6 @@ async function startCall(userId, userName, stream) {
         if (data.answer && !peerConnection.currentRemoteDescription) {
             const answerDescription = new RTCSessionDescription(data.answer);
             peerConnection.setRemoteDescription(answerDescription);
-            // Show "End Call" button for caller
             showEndCallButton(callDoc.id, peerConnection);
         }
     });
@@ -1139,7 +1138,6 @@ async function acceptCall(callId, stream) {
 
     // Create remote stream
     const remoteStream = new MediaStream();
-    // Add remote stream to video element
     addRemoteVideo(remoteStream);
 
     // Handle ICE candidates from the callee
@@ -1165,9 +1163,7 @@ async function acceptCall(callId, stream) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        // Update the call document with the answer
         await updateDoc(callRef, { answer: { type: answer.type, sdp: answer.sdp } });
-        // Show "End Call" button for callee
         showEndCallButton(callId, peerConnection);
     }
 
@@ -1254,8 +1250,8 @@ function addRemoteVideo(stream) {
 function showCallingNotification(recipientName) {
     const callingOverlay = document.createElement('div');
     callingOverlay.classList.add('calling-overlay');
-    callingOverlay.innerHTML = 
-        `<div class="calling-content">
+    callingOverlay.innerHTML = `
+        <div class="calling-content">
             <p>Calling ${recipientName}...</p>
         </div>`;
     
@@ -1280,8 +1276,8 @@ function showCallingNotification(recipientName) {
 function showIncomingCallNotification(callerName, callId) {
     const incomingCallOverlay = document.createElement('div');
     incomingCallOverlay.classList.add('incoming-call-overlay');
-    incomingCallOverlay.innerHTML = 
-        `<div class="incoming-call-content">
+    incomingCallOverlay.innerHTML = `
+        <div class="incoming-call-content">
             <p>${callerName} is calling you...</p>
             <div class="incoming-call-buttons">
                 <button id="answer-call-${callId}" style="background-color: green; color: white; padding: 10px 20px; margin-right: 10px; border-radius: 5px;">Accept</button>
@@ -1346,6 +1342,7 @@ function showEndCallButton(callId, peerConnection) {
     });
 }
 
+// Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
     onSnapshot(callRef, (snapshot) => {
@@ -1353,7 +1350,7 @@ function setupIncomingCallListener() {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                if (!data.answered && data.recipientId === userId) { // Ispravljeno poređenje
+                if (!data.answered && data.recipientId === username) {
                     showIncomingCallNotification(data.caller, doc.id);
                 }
             }
@@ -1361,9 +1358,9 @@ function setupIncomingCallListener() {
     });
 }
 
-
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
