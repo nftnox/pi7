@@ -1203,13 +1203,10 @@ function addLocalVideo(stream) {
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
-        // Dodajte transformaciju za zrcaljenje
-        localVideo.style.transform = 'scaleX(-1)';
         document.body.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
 }
-
 
 // Function to add remote video
 function addRemoteVideo(stream) {
