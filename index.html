@@ -188,7 +188,76 @@ textarea {
 
 
 
+#search-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px; /* Razmak između pretrage i liste korisnika */
+}
 
+#user-search {
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    width: 250px; /* Širina polja za pretragu */
+    font-size: 16px;
+}
+
+#search-button {
+    background-color: #4CAF50; /* Zelena boja */
+    color: white; /* Bijela boja teksta */
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-left: 10px; /* Razmak između polja za pretragu i dugmeta */
+    font-size: 16px;
+    transition: background-color 0.3s ease; /* Animacija za hover */
+}
+
+#search-button:hover {
+    background-color: #45a049; /* Tamnija zelena kada se pređe mišem */
+}
+
+#search-button:focus {
+    outline: none; /* Uklanja plavi rub kad je dugme fokusirano */
+}
+
+
+/* Stilovi za modal */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4); /* Crna pozadina sa transparentnošću */
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 400px;
+    border-radius: 10px;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover, .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
 
     </style>
 </head>
@@ -227,6 +296,15 @@ textarea {
         </div>
         
         <div id="chat-box">
+            <div id="search-container">
+                <input type="text" id="user-search" placeholder="Search users...">
+                <button id="search-button">🔍</button>
+            </div>
+           
+            <div id="users-list"></div>
+
+        
+            
             <div id="users-list"></div> <!-- Prikaz korisnika u krugovima -->
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
@@ -238,6 +316,16 @@ textarea {
             </div>
             
         </div>
+
+        <!-- Modal za kreiranje grupe -->
+<div id="group-modal" style="display: none;">
+    <div id="group-content">
+        <h2>Kreiraj grupu</h2>
+        <div id="friend-list"></div> <!-- Lista prijatelja za odabir -->
+        <button id="create-group-confirm">Kreiraj grupu</button>
+        <button id="close-group-modal">Zatvori</button>
+    </div>
+</div>
     </div>
     
    
@@ -480,33 +568,95 @@ textarea {
 let selectedUserName = ''; // Čuvamo ime trenutno odabranog korisnika
 let selectedUserId = ''; // Čuvamo ID trenutno odabranog korisnika
 
-// Funkcija za dobijanje korisnika
-async function fetchUsers() {
-    const userCollection = collection(db, 'network');
-    const querySnapshot = await getDocs(userCollection);
+// Store all users globally to filter them later
+let allUsers = [];
+let contacts = new Set(); // Set koristi se za eliminaciju duplikata
 
+// Fetch only the users with whom a chat has been established
+async function fetchContacts() {
+    const chatRequestCollection = collection(db, 'chatRequests');
+
+    // Upiti za oba slučaja: korisnik kao requester i korisnik kao recipient
+    const qRequester = query(chatRequestCollection, where('accepted', '==', true), where('requester', '==', username));
+    const qRecipient = query(chatRequestCollection, where('accepted', '==', true), where('recipientName', '==', username));
+
+    contacts.clear(); // Očisti prethodne kontakte
+
+    // Dohvati sve chatove gdje je trenutni korisnik bio requester
+    const querySnapshotRequester = await getDocs(qRequester);
+    querySnapshotRequester.forEach(doc => {
+        const chatData = doc.data();
+        contacts.add(JSON.stringify({ userName: chatData.recipientName, userId: chatData.recipientId }));
+    });
+
+    // Dohvati sve chatove gdje je trenutni korisnik bio recipient
+    const querySnapshotRecipient = await getDocs(qRecipient);
+    querySnapshotRecipient.forEach(doc => {
+        const chatData = doc.data();
+        contacts.add(JSON.stringify({ userName: chatData.requester, userId: chatData.requesterId }));
+    });
+
+    const uniqueContacts = Array.from(contacts).map(item => JSON.parse(item));
+    displayUsers(uniqueContacts); // Prikaži kontakte bez duplikata
+}
+
+// Funkcija za prikazivanje korisnika u listi
+function displayUsers(users) {
     const usersListDiv = document.getElementById('users-list');
-    usersListDiv.innerHTML = ''; // Očisti listu korisnika
+    usersListDiv.innerHTML = ''; // Očisti prethodnu listu
 
-    // Iteriraj kroz sve dokumente (korisnike) i prikaži njihova imena u chat prozoru
-    querySnapshot.forEach(doc => {
-        const userData = doc.data();
-        const userName = userData.ime;
-        const userId = doc.id; // Preuzmi ID korisnika
-
-        // Kreiraj HTML element za ime korisnika
+    users.forEach(user => {
         const userElement = document.createElement('div');
-        userElement.classList.add('user-item'); // Stilizacija korisnika
-        userElement.innerText = userName; // Postavi ime korisnika kao tekst
+        userElement.classList.add('user-item');
+        userElement.innerText = user.userName;
 
-        // Dodaj klik događaj za odabir korisnika
+        // Dodaj event listener za ulazak u chat sa odabranim korisnikom
         userElement.addEventListener('click', () => {
-            checkExistingChatRequest(userId, userName); // Provjeri da li postoji zahtjev za chat
+            checkExistingChatRequest(user.userId, user.userName);
         });
 
         usersListDiv.appendChild(userElement);
     });
 }
+
+// Funkcija za pretragu korisnika prilikom unosa
+document.getElementById('user-search').addEventListener('input', function () {
+    const searchText = this.value.toLowerCase();
+
+    if (searchText === '') {
+        // Ako je pretraga prazna, prikazuj samo kontakte
+        displayUsers(Array.from(contacts).map(item => JSON.parse(item)));
+    } else {
+        // Ako postoji unos u pretrazi, filtriraj sve korisnike
+        const filteredUsers = allUsers.filter(user => user.userName.toLowerCase().includes(searchText));
+        displayUsers(filteredUsers); // Ažuriraj listu s filtriranim korisnicima
+    }
+});
+
+// Funkcija za dohvat svih korisnika
+async function fetchUsers() {
+    const userCollection = collection(db, 'network');
+    const querySnapshot = await getDocs(userCollection);
+
+    allUsers = []; // Očisti listu korisnika
+    querySnapshot.forEach(doc => {
+        const userData = doc.data();
+        const userName = userData.ime;
+        const userId = doc.id;
+
+        allUsers.push({ userName, userId });
+    });
+
+    // Nakon dohvaćanja svih korisnika, prikaži samo one s kojima je započet razgovor
+    await fetchContacts(); // Prikaži samo kontakte
+}
+
+// Funkcija za inicijalno učitavanje kada se otvori chat modal
+document.getElementById('chat-link').addEventListener('click', async () => {
+    await fetchUsers(); // Učitaj sve korisnike, ali prikaži samo one s kojima je započet razgovor
+});
+
+
 
 // Funkcija za provjeru postojećeg zahtjeva za chat između dva korisnika
 async function checkExistingChatRequest(userId, userName) {
@@ -883,6 +1033,10 @@ function openChatWithUser(userId) {
 
 
 
+
+
+
+
 // Configuration for WebRTC
 const configuration = {
     iceServers: [
@@ -1141,7 +1295,7 @@ function showIncomingCallNotification(callerName, callId) {
                 <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
             </div>
         </div>`;
-    
+
     incomingCallOverlay.style.position = 'fixed';
     incomingCallOverlay.style.top = '0';
     incomingCallOverlay.style.left = '0';
@@ -1158,19 +1312,27 @@ function showIncomingCallNotification(callerName, callId) {
 
     document.body.appendChild(incomingCallOverlay);
 
+    // Create and play ringtone audio
+    const ringtone = new Audio('images/ringtone.mp3');
+    ringtone.loop = true; // Loop ringtone until call is answered or declined
+    ringtone.play();
+
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
         document.body.removeChild(incomingCallOverlay); // Remove overlay
+        ringtone.pause(); // Stop ringtone
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
         document.body.removeChild(incomingCallOverlay); // Remove overlay
+        ringtone.pause(); // Stop ringtone
         // Optionally, update call document to indicate call was declined
     });
 }
+
 
 // Function to show "End Call" button
 function showEndCallButton(callId, peerConnection) {
