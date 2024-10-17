@@ -1345,20 +1345,20 @@ function showEndCallButton(callId, peerConnection) {
     });
 }
 
-// Set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
-    onSnapshot(callRef, (snapshot) => {
+
+    // Kreiraj query koji prati samo pozive gdje je trenutni korisnik recipient
+    const q = query(callRef, where('recipientId', '==', userId), where('answered', '==', false));
+
+    onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-
-                // Provjeri da li je trenutni korisnik recipient poziva
-                if (!data.answered && data.recipientId === userId) {
-                    // Prikaz notifikacije samo ako je trenutni korisnik recipient
-                    showIncomingCallNotification(data.caller, doc.id);
-                }
+                
+                // Prikaz notifikacije samo ako je trenutni korisnik recipient
+                showIncomingCallNotification(data.caller, doc.id);
             }
         });
     });
