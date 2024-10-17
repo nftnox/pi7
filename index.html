@@ -1049,7 +1049,7 @@ async function startCall(userId, userName, stream) {
     const callRef = collection(db, 'calls');
     const callDoc = await addDoc(callRef, {
         caller: username,
-        recipientId: userId,
+        recipientId: userId,  // Provjeri da li je userId tačan
         recipientName: userName,
         answered: false,
         ongoing: true,
@@ -1348,18 +1348,23 @@ function showEndCallButton(callId, peerConnection) {
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
-    onSnapshot(callRef, (snapshot) => {
+    
+    // Kreiramo query da filtriramo samo pozive upućene trenutnom korisniku
+    const q = query(callRef, where('recipientId', '==', username), where('answered', '==', false));
+
+    // Slušaj samo promjene koje odgovaraju ovom korisniku
+    onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                if (!data.answered && data.recipientId === username) {
-                    showIncomingCallNotification(data.caller, doc.id);
-                }
+                // Poziv je stigao samo ovom korisniku
+                showIncomingCallNotification(data.caller, doc.id);
             }
         });
     });
 }
+
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
