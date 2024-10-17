@@ -1206,37 +1206,49 @@ async function acceptCall(callId, stream) {
 }
 
 let currentCamera = 'user'; // Default to front camera (selfie)
+let localStream = null; // Save the current local stream
 
 // Function to switch between front and back cameras
 async function switchCamera() {
     const constraints = {
         video: {
-            facingMode: currentCamera === 'user' ? 'environment' : 'user' // Switch camera
+            facingMode: currentCamera === 'user' ? 'environment' : 'user' // Switch between front and back camera
         },
         audio: true
     };
 
     try {
+        // Stop the existing video tracks before switching
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+
+        // Get new stream from the other camera
         const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-        // Replace tracks in peer connection with new camera stream
+
+        // Replace the track in the peer connection
         const videoTrack = newStream.getVideoTracks()[0];
         const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
         if (sender) {
             sender.replaceTrack(videoTrack);
         }
 
-        // Update local video element
+        // Update the local video element
         localVideo.srcObject = newStream;
+        localStream = newStream; // Store new stream
 
         // Toggle camera state
         currentCamera = currentCamera === 'user' ? 'environment' : 'user';
     } catch (error) {
         console.error('Greška prilikom prebacivanja kamere:', error);
+        alert('Nije moguće prebaciti kameru. Proverite da li uređaj ima stražnju kameru.');
     }
 }
 
 // Function to add local video with camera switch button
 function addLocalVideo(stream) {
+    localStream = stream; // Save the stream globally
+
     let localVideo = document.getElementById('localVideo');
     if (!localVideo) {
         localVideo = document.createElement('video');
