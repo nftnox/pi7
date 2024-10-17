@@ -1348,22 +1348,18 @@ function showEndCallButton(callId, peerConnection) {
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
-
-    // Dodaj query koji filtrira pozive samo za trenutnog korisnika
-    const q = query(callRef, where('recipientId', '==', username), where('answered', '==', false));
-
-    onSnapshot(q, (snapshot) => {
+    onSnapshot(callRef, (snapshot) => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                // Ovdje nema potrebe za dodatnim uslovom jer smo već filtrirali pozive samo za ovog korisnika
-                showIncomingCallNotification(data.caller, doc.id);
+                if (!data.answered && data.recipientId === username) {
+                    showIncomingCallNotification(data.caller, doc.id);
+                }
             }
         });
     });
 }
-
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
