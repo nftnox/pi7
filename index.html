@@ -832,27 +832,36 @@ document.getElementById('toggle-menu').addEventListener('click', async (event) =
 
 
 // Funkcija za otvaranje chat-a
-async function openChat(userName) {
-    selectedUserName = userName; // Zapamti ime odabranog korisnika
+function openChat(userName) {
+    selectedUserName = userName;
+
+    // Pronađite ID korisnika na osnovu imena
+    const user = allUsers.find(u => u.userName === userName);
+    if (user) {
+        selectedUserId = user.userId;
+    } else {
+        console.error('Korisnik nije pronađen');
+    }
+
+    // Postojeći kod za prikazivanje chata...
     const messagesDiv = document.getElementById('messages');
     const messageInputDiv = document.getElementById('message-input');
     const usersListDiv = document.getElementById('users-list');
     const backButton = document.getElementById('back-to-users');
     const chatHeaderTitle = document.getElementById('chat-header-title');
 
-    // Sakrij listu korisnika i prikaži chat prozor
     usersListDiv.style.display = 'none';
     messagesDiv.style.display = 'block';
     messageInputDiv.style.display = 'flex';
 
-    // Prikaz imena odabranog korisnika
     chatHeaderTitle.innerText = `Chat with ${userName}`;
-    backButton.style.display = 'block'; // Prikaži dugme za povratak
+    backButton.style.display = 'block';
 
-    // Dohvati i prikaži historiju poruka
-    await loadMessageHistory();
-    listenForNewMessages(); // Počnimo slušati nove poruke
+    // Učitajte historiju poruka i počnite slušati nove poruke
+    loadMessageHistory();
+    listenForNewMessages();
 }
+
 
 
 async function loadMessageHistory() {
@@ -1041,8 +1050,16 @@ const configuration = {
 
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    await startCall(selectedUserId, selectedUserName, stream); // Koristimo selectedUserId koji je sada ispravno postavljen
+    if (!selectedUserId || !selectedUserName) {
+        console.error('selectedUserId ili selectedUserName nisu postavljeni');
+        return;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        await startCall(selectedUserId, selectedUserName, stream);
+    } catch (error) {
+        console.error('Greška prilikom pokretanja poziva:', error);
+    }
 });
 
 
@@ -1358,13 +1375,15 @@ function setupIncomingCallListener() {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                if (!data.answered && data.recipientId === userId) { // Ispravljeno poređenje
+                if (!data.answered && data.recipientId === userId) {
+                    console.log('Dolazni poziv od:', data.caller);
                     showIncomingCallNotification(data.caller, doc.id);
                 }
             }
         });
     });
 }
+
 
 
 // Initialize listening for incoming calls
