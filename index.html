@@ -1287,7 +1287,7 @@ function showIncomingCallNotification(callerName, callId) {
                 <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
             </div>
         </div>`;
-
+    
     incomingCallOverlay.style.position = 'fixed';
     incomingCallOverlay.style.top = '0';
     incomingCallOverlay.style.left = '0';
@@ -1304,31 +1304,19 @@ function showIncomingCallNotification(callerName, callId) {
 
     document.body.appendChild(incomingCallOverlay);
 
-    // Create and play ringtone audio when the call notification appears
-    const ringtone = new Audio('images/ringtone.mp3');
-    ringtone.loop = true;
-
-    // Attempt to play the ringtone automatically when the incoming call notification is displayed
-    ringtone.play().catch((error) => {
-        console.error("Playback failed: ", error);
-    });
-
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         await acceptCall(callId, stream);
         document.body.removeChild(incomingCallOverlay); // Remove overlay
-        ringtone.pause(); // Stop ringtone
     });
 
     // Event for declining the call
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
         document.body.removeChild(incomingCallOverlay); // Remove overlay
-        ringtone.pause(); // Stop ringtone
         // Optionally, update call document to indicate call was declined
     });
 }
-
 
 // Function to show "End Call" button
 function showEndCallButton(callId, peerConnection) {
@@ -1360,18 +1348,22 @@ function showEndCallButton(callId, peerConnection) {
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
-    onSnapshot(callRef, (snapshot) => {
+
+    // Dodaj query koji filtrira pozive samo za trenutnog korisnika
+    const q = query(callRef, where('recipientId', '==', username), where('answered', '==', false));
+
+    onSnapshot(q, (snapshot) => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                if (!data.answered && data.recipientId === username) {
-                    showIncomingCallNotification(data.caller, doc.id);
-                }
+                // Ovdje nema potrebe za dodatnim uslovom jer smo već filtrirali pozive samo za ovog korisnika
+                showIncomingCallNotification(data.caller, doc.id);
             }
         });
     });
 }
+
 
 // Initialize listening for incoming calls
 setupIncomingCallListener();
