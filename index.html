@@ -1348,7 +1348,7 @@ function showEndCallButton(callId, peerConnection) {
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
 
-    // Kreiraj query koji prati samo pozive gdje je trenutni korisnik recipient
+    // Prati promjene samo za pozive namijenjene trenutnom korisniku
     const q = query(callRef, where('recipientId', '==', userId), where('answered', '==', false));
 
     onSnapshot(q, (snapshot) => {
