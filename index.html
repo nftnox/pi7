@@ -1294,6 +1294,7 @@ function showIncomingCallNotification(callerName, callId) {
                 <button id="answer-call-${callId}" style="background-color: green; color: white; padding: 10px 20px; margin-right: 10px; border-radius: 5px;">Accept</button>
                 <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
             </div>
+            <p>Tap to enable sound</p>
         </div>`;
 
     incomingCallOverlay.style.position = 'fixed';
@@ -1312,10 +1313,16 @@ function showIncomingCallNotification(callerName, callId) {
 
     document.body.appendChild(incomingCallOverlay);
 
-    // Create and play ringtone audio
+    // Create audio element for ringtone
     const ringtone = new Audio('images/ringtone.mp3');
-    ringtone.loop = true; // Loop ringtone until call is answered or declined
-    ringtone.play();
+    ringtone.loop = true;
+
+    // Add event listener to start playing ringtone after user taps/clicks
+    incomingCallOverlay.addEventListener('click', () => {
+        ringtone.play().catch(error => {
+            console.error('Playback failed:', error);
+        });
+    });
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
@@ -1329,7 +1336,6 @@ function showIncomingCallNotification(callerName, callId) {
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
         document.body.removeChild(incomingCallOverlay); // Remove overlay
         ringtone.pause(); // Stop ringtone
-        // Optionally, update call document to indicate call was declined
     });
 }
 
