@@ -1039,12 +1039,32 @@ const configuration = {
     ]
 };
 
+let localStream; // To keep track of the local media stream
+let isFrontCamera = true; // To keep track of which camera is currently in use
+let localPeerConnection; // To access the peer connection globally
+
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    await startCall(selectedUserId, selectedUserName, stream); // Koristimo selectedUserId koji je sada ispravno postavljen
+    // Get the initial media stream with the front camera
+    localStream = await getMediaStream(isFrontCamera);
+    await startCall(selectedUserId, selectedUserName, localStream); // Use selectedUserId which is now correctly set
 });
 
+// Function to get media stream with specified camera
+async function getMediaStream(useFrontCamera) {
+    // Constraints for media devices
+    const videoConstraints = {
+        facingMode: useFrontCamera ? 'user' : 'environment'
+    };
+
+    const constraints = {
+        video: videoConstraints,
+        audio: true
+    };
+
+    // Get user media with specified constraints
+    return await navigator.mediaDevices.getUserMedia(constraints);
+}
 
 // Function to start the call
 async function startCall(userId, userName, stream) {
@@ -1064,12 +1084,13 @@ async function startCall(userId, userName, stream) {
     console.log(`Calling user ${userName}.`);
 
     // Add local video
-    addLocalVideo(stream);
+    addLocalVideo(localStream);
 
     const peerConnection = new RTCPeerConnection(configuration);
+    localPeerConnection = peerConnection; // Save for later use
 
     // Add local tracks to peer connection
-    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     // Create remote stream
     const remoteStream = new MediaStream();
@@ -1131,12 +1152,14 @@ async function acceptCall(callId, stream) {
     await updateDoc(callRef, { answered: true });
 
     const peerConnection = new RTCPeerConnection(configuration);
+    localPeerConnection = peerConnection; // Save for later use
 
     // Add local tracks to peer connection
-    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+    localStream = await getMediaStream(isFrontCamera); // Get initial stream
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
     // Add local video
-    addLocalVideo(stream);
+    addLocalVideo(localStream);
 
     // Create remote stream
     const remoteStream = new MediaStream();
@@ -1203,9 +1226,47 @@ function addLocalVideo(stream) {
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
+
+        // Correct the orientation of the local camera
+        // Remove any existing transform
+        localVideo.style.transform = '';
+
+        // Add button to switch camera
+        const switchCameraButton = document.createElement('button');
+        switchCameraButton.id = 'switch-camera';
+        switchCameraButton.textContent = 'Switch Camera';
+        switchCameraButton.style.position = 'absolute';
+        switchCameraButton.style.bottom = '120px';
+        switchCameraButton.style.right = '10px';
+        switchCameraButton.style.zIndex = '10001';
+
+        switchCameraButton.addEventListener('click', async () => {
+            // Toggle camera
+            isFrontCamera = !isFrontCamera;
+            // Stop current tracks
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            // Get new stream with the other camera
+            localStream = await getMediaStream(isFrontCamera);
+            // Update local video stream
+            localVideo.srcObject = localStream;
+
+            // Replace tracks in peer connection
+            const videoSender = localPeerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (videoSender) {
+                videoSender.replaceTrack(localStream.getVideoTracks()[0]);
+            }
+        });
+
         document.body.appendChild(localVideo);
+        document.body.appendChild(switchCameraButton);
     }
     localVideo.srcObject = stream;
+
+    // Correct the orientation of the local camera
+    // Remove any mirroring
+    localVideo.style.transform = '';
 }
 
 // Function to add remote video
@@ -1308,8 +1369,8 @@ function showIncomingCallNotification(callerName, callId) {
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        await acceptCall(callId, stream);
+        localStream = await getMediaStream(isFrontCamera); // Get initial stream
+        await acceptCall(callId, localStream);
         document.body.removeChild(incomingCallOverlay); // Remove overlay
     });
 
@@ -1344,6 +1405,27 @@ function showEndCallButton(callId, peerConnection) {
         await updateDoc(doc(db, 'calls', callId), { ongoing: false });
         document.body.removeChild(endCallButton);
         console.log("Call ended.");
+
+        // Stop local video and remove elements
+        if (localStream) {
+            localStream.getTracks().forEach(track => track.stop());
+        }
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            document.body.removeChild(localVideo);
+        }
+        const remoteVideo = document.getElementById('remoteVideo');
+        if (remoteVideo) {
+            document.body.removeChild(remoteVideo);
+        }
+        const remoteVideoBlur = document.getElementById('remoteVideoBlur');
+        if (remoteVideoBlur) {
+            document.body.removeChild(remoteVideoBlur);
+        }
+        const switchCameraButton = document.getElementById('switch-camera');
+        if (switchCameraButton) {
+            document.body.removeChild(switchCameraButton);
+        }
     });
 }
 
@@ -1355,7 +1437,7 @@ function setupIncomingCallListener() {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                if (!data.answered && data.recipientId === userId) { // Ispravljeno poređenje
+                if (!data.answered && data.recipientId === userId) { // Corrected comparison
                     showIncomingCallNotification(data.caller, doc.id);
                 }
             }
@@ -1363,9 +1445,9 @@ function setupIncomingCallListener() {
     });
 }
 
-
 // Initialize listening for incoming calls
 setupIncomingCallListener();
+
 
 
 
