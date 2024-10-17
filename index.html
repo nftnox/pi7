@@ -316,7 +316,6 @@ textarea {
             </div>
             
         </div>
-
         
     </div>
     
@@ -652,6 +651,8 @@ document.getElementById('chat-link').addEventListener('click', async () => {
 
 // Funkcija za provjeru postojećeg zahtjeva za chat između dva korisnika
 async function checkExistingChatRequest(userId, userName) {
+    selectedUserId = userId; // Dodano: Postavljanje selectedUserId
+    selectedUserName = userName;
     const chatRequestCollection = collection(db, 'chatRequests');
     const q = query(chatRequestCollection, 
                     where('requester', 'in', [username, userName]), 
@@ -1041,8 +1042,9 @@ const configuration = {
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    await startCall(selectedUserId, selectedUserName, stream);
+    await startCall(selectedUserId, selectedUserName, stream); // Koristimo selectedUserId koji je sada ispravno postavljen
 });
+
 
 // Function to start the call
 async function startCall(userId, userName, stream) {
@@ -1345,20 +1347,17 @@ function showEndCallButton(callId, peerConnection) {
     });
 }
 
+// Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
-
-    // Prati promjene samo za pozive namijenjene trenutnom korisniku
-    const q = query(callRef, where('recipientId', '==', userId), where('answered', '==', false));
-
-    onSnapshot(q, (snapshot) => {
+    onSnapshot(callRef, (snapshot) => {
         snapshot.docChanges().forEach(change => {
             if (change.type === 'added') {
                 const doc = change.doc;
                 const data = doc.data();
-                
-                // Prikaz notifikacije samo ako je trenutni korisnik recipient
-                showIncomingCallNotification(data.caller, doc.id);
+                if (!data.answered && data.recipientId === userId) { // Ispravljeno poređenje
+                    showIncomingCallNotification(data.caller, doc.id);
+                }
             }
         });
     });
