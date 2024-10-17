@@ -1205,50 +1205,8 @@ async function acceptCall(callId, stream) {
     console.log("Call established at callee.");
 }
 
-let currentCamera = 'user'; // Default to front camera (selfie)
-let localStream = null; // Save the current local stream
-
-// Function to switch between front and back cameras
-async function switchCamera() {
-    const constraints = {
-        video: {
-            facingMode: currentCamera === 'user' ? 'environment' : 'user' // Switch between front and back camera
-        },
-        audio: true
-    };
-
-    try {
-        // Stop the existing video tracks before switching
-        if (localStream) {
-            localStream.getTracks().forEach(track => track.stop());
-        }
-
-        // Get new stream from the other camera
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        // Replace the track in the peer connection
-        const videoTrack = newStream.getVideoTracks()[0];
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-        if (sender) {
-            sender.replaceTrack(videoTrack);
-        }
-
-        // Update the local video element
-        localVideo.srcObject = newStream;
-        localStream = newStream; // Store new stream
-
-        // Toggle camera state
-        currentCamera = currentCamera === 'user' ? 'environment' : 'user';
-    } catch (error) {
-        console.error('Greška prilikom prebacivanja kamere:', error);
-        alert('Nije moguće prebaciti kameru. Proverite da li uređaj ima stražnju kameru.');
-    }
-}
-
-// Function to add local video with camera switch button
+// Function to add local video
 function addLocalVideo(stream) {
-    localStream = stream; // Save the stream globally
-
     let localVideo = document.getElementById('localVideo');
     if (!localVideo) {
         localVideo = document.createElement('video');
@@ -1256,36 +1214,18 @@ function addLocalVideo(stream) {
         localVideo.style.position = 'absolute';
         localVideo.style.bottom = '10px';
         localVideo.style.right = '10px';
-        localVideo.style.width = '100px';
+        localVideo.style.width = '100px'; // Smaller local video
         localVideo.style.border = '2px solid yellow';
-        localVideo.style.zIndex = '10000';
+        localVideo.style.zIndex = '10000'; // Higher z-index to appear over remote video
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
-        localVideo.style.transform = 'scaleX(-1)'; // Mirror for selfie
+        // Dodajte transformaciju za zrcaljenje
+        localVideo.style.transform = 'scaleX(-1)';
         document.body.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
-
-    // Add camera switch button
-    let switchButton = document.getElementById('switch-camera');
-    if (!switchButton) {
-        switchButton = document.createElement('button');
-        switchButton.id = 'switch-camera';
-        switchButton.textContent = '🔄'; // Icon for switching camera
-        switchButton.style.position = 'absolute';
-        switchButton.style.bottom = '5px';
-        switchButton.style.left = '5px';
-        switchButton.style.padding = '5px';
-        switchButton.style.border = 'none';
-        switchButton.style.borderRadius = '50%';
-        switchButton.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
-        switchButton.style.zIndex = '10001';
-        switchButton.addEventListener('click', switchCamera);
-        document.body.appendChild(switchButton);
-    }
 }
-
 
 
 // Function to add remote video
@@ -1359,6 +1299,13 @@ function showCallingNotification(recipientName) {
 
 // Function to show incoming call notification (callee side)
 function showIncomingCallNotification(callerName, callId) {
+    // Create audio element for ringtone
+    const ringtone = new Audio('images/ringtone.mp3');
+    ringtone.loop = true;
+    ringtone.play().catch(error => {
+        console.error('Error playing ringtone:', error);
+    });
+
     const incomingCallOverlay = document.createElement('div');
     incomingCallOverlay.classList.add('incoming-call-overlay');
     incomingCallOverlay.innerHTML = 
@@ -1385,6 +1332,26 @@ function showIncomingCallNotification(callerName, callId) {
     incomingCallOverlay.style.fontSize = '24px';
 
     document.body.appendChild(incomingCallOverlay);
+
+    // Event for accepting the call
+    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
+        ringtone.pause(); // Stop the ringtone
+        ringtone.currentTime = 0; // Reset to the beginning
+        document.body.removeChild(incomingCallOverlay); // Remove overlay
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        await acceptCall(callId, stream);
+    });
+
+    // Event for declining the call
+    document.getElementById(`decline-call-${callId}`).addEventListener('click', async () => {
+        ringtone.pause(); // Stop the ringtone
+        ringtone.currentTime = 0; // Reset to the beginning
+        document.body.removeChild(incomingCallOverlay); // Remove overlay
+        // Optionally, update call document to indicate call was declined
+        await updateDoc(doc(db, 'calls', callId), { ongoing: false });
+    });
+
+
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
