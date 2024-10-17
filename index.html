@@ -317,15 +317,7 @@ textarea {
             
         </div>
 
-        <!-- Modal za kreiranje grupe -->
-<div id="group-modal" style="display: none;">
-    <div id="group-content">
-        <h2>Kreiraj grupu</h2>
-        <div id="friend-list"></div> <!-- Lista prijatelja za odabir -->
-        <button id="create-group-confirm">Kreiraj grupu</button>
-        <button id="close-group-modal">Zatvori</button>
-    </div>
-</div>
+        
     </div>
     
    
@@ -1294,7 +1286,6 @@ function showIncomingCallNotification(callerName, callId) {
                 <button id="answer-call-${callId}" style="background-color: green; color: white; padding: 10px 20px; margin-right: 10px; border-radius: 5px;">Accept</button>
                 <button id="decline-call-${callId}" style="background-color: red; color: white; padding: 10px 20px; border-radius: 5px;">Decline</button>
             </div>
-            <p>Tap to enable sound</p>
         </div>`;
 
     incomingCallOverlay.style.position = 'fixed';
@@ -1313,15 +1304,13 @@ function showIncomingCallNotification(callerName, callId) {
 
     document.body.appendChild(incomingCallOverlay);
 
-    // Create audio element for ringtone
+    // Create and play ringtone audio when the call notification appears
     const ringtone = new Audio('images/ringtone.mp3');
     ringtone.loop = true;
 
-    // Add event listener to start playing ringtone after user taps/clicks
-    incomingCallOverlay.addEventListener('click', () => {
-        ringtone.play().catch(error => {
-            console.error('Playback failed:', error);
-        });
+    // Attempt to play the ringtone automatically when the incoming call notification is displayed
+    ringtone.play().catch((error) => {
+        console.error("Playback failed: ", error);
     });
 
     // Event for accepting the call
@@ -1336,6 +1325,7 @@ function showIncomingCallNotification(callerName, callId) {
     document.getElementById(`decline-call-${callId}`).addEventListener('click', () => {
         document.body.removeChild(incomingCallOverlay); // Remove overlay
         ringtone.pause(); // Stop ringtone
+        // Optionally, update call document to indicate call was declined
     });
 }
 
