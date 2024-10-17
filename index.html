@@ -1042,9 +1042,8 @@ const configuration = {
 // When the user clicks the call button
 document.getElementById('start-call').addEventListener('click', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    await startCall(selectedUserId, selectedUserName, stream); // Koristimo selectedUserId koji je sada ispravno postavljen
+    await startCall(selectedUserId, selectedUserName, stream);
 });
-
 
 // Function to start the call
 async function startCall(userId, userName, stream) {
@@ -1347,7 +1346,6 @@ function showEndCallButton(callId, peerConnection) {
     });
 }
 
-// Function to set up listening for incoming calls
 function setupIncomingCallListener() {
     const callRef = collection(db, 'calls');
     onSnapshot(callRef, (snapshot) => {
