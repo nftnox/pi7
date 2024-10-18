@@ -18,16 +18,7 @@ textarea {
 }
 
 
-        /* Osigurajmo da se #referral-info prikazuje */
-        #referral-info {
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-        }
-        #referral-info .material-icons {
-            margin-right: 5px;
-        }
-
+      
         /* Chat modal, smješten u donji desni ugao za desktop, full screen za mobilne uređaje */
         #chat-modal {
             display: none;
@@ -119,17 +110,19 @@ textarea {
 
 
         /* Donji dio s unosom poruke */
-#message-input {
+        #message-input {
     display: flex;
     gap: 10px;
     padding: 10px;
-    position: absolute; /* Fiksiranje na dno chata */
+    position: sticky; /* Fiksirano na dno, ali unutar tok dokumenta */
     bottom: 0;
-    width: 100%; /* Osigurava da unosi zauzimaju cijelu širinu chata */
-    background-color: white; /* Dodaj pozadinu kako bi bio vidljiv na skrolanju */
-    border-top: 1px solid #ccc; /* Gornja granica za odvajanje od poruka */
-    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Blaga sjena za bolji vizual */
+    width: 100%; /* Osigurava da unos zauzima cijelu širinu chata */
+    background-color: white; /* Dodaj pozadinu */
+    border-top: 1px solid #ccc; /* Gornja linija za odvajanje od poruka */
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1); /* Blaga sjena za vizualni efekat */
+    z-index: 10; /* Osiguraj da unos bude iznad poruka */
 }
+
 
 /* Unosno polje */
 #message-input input {
@@ -258,21 +251,72 @@ textarea {
     text-decoration: none;
     cursor: pointer;
 }
-.reaction-icons {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 5px;
-    font-size: 20px;
+
+
+.user-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Kako bi slika ispunila krug bez deformacija */
+    border-radius: 50%; /* Zadrži kružni oblik slike */
 }
 
-.icon {
+
+
+.message img {
+    max-width: 100px; /* Limits the width of the image */
+    max-height: 100px; /* Limits the height of the image */
+    border-radius: 8px; /* Adds rounded corners */
+    margin-bottom: 10px; /* Adds spacing below the image */
+    object-fit: cover; /* Ensures the image covers the area without being distorted */
+}
+
+/* The modal for full-screen image */
+.image-modal {
+    display: none; /* Hidden by default */
+    position: fixed;
+    z-index: 1000; /* Ensure it appears above other elements */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    background-color: rgba(0, 0, 0, 0.9); /* Black background with transparency */
+}
+
+/* Image inside the modal */
+.modal-content {
+    margin: auto;
+    display: block;
+    max-width: 90%;
+    max-height: 90%;
+}
+
+/* Close button */
+.close {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: white;
+    font-size: 40px;
+    font-weight: bold;
     cursor: pointer;
-    margin-right: 10px;
-    transition: transform 0.2s ease;
 }
 
-.icon:hover {
-    transform: scale(1.3);
+.close:hover,
+.close:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+@media screen and (max-width: 768px) {
+    .image-modal {
+        align-items: flex-start; /* Align the image to the top */
+        padding-top: 250px; /* Add padding at the top to push the image down */
+    }
+
+    .modal-content {
+        max-width: 95%;
+        max-height: 70%; /* Keep the height smaller for mobile */
+    }
 }
 
     </style>
@@ -336,18 +380,30 @@ textarea {
         
     </div>
     
-   
-    <div class="message" id="message-${messageId}">
-        ${messageText}
-        <div class="reaction-icons" id="reaction-icons-${messageId}" style="display: none;">
-            <span class="icon" data-reaction="❤️">❤️</span>
-            <span class="icon" data-reaction="😄">😄</span>
-            <span class="icon" data-reaction="😢">😢</span>
-            <span class="icon" data-reaction="😡">😡</span>
-            <span class="icon" data-reaction="👍">👍</span>
-        </div>
-    </div>
-    
+   <!-- Modal for full-screen image -->
+<div id="image-modal" class="image-modal">
+    <span id="close-image-modal" class="close">&times;</span>
+    <img class="modal-content" id="full-screen-image">
+</div>
+
+
+<script>
+    document.addEventListener('click', function(event) {
+    if (event.target.tagName === 'IMG' && event.target.parentElement.classList.contains('message')) {
+        const modal = document.getElementById('image-modal');
+        const modalImg = document.getElementById('full-screen-image');
+        modal.style.display = 'block';
+        modalImg.src = event.target.src; // Set the image source to the clicked image
+    }
+});
+
+// Close the modal when the close button is clicked
+document.getElementById('close-image-modal').addEventListener('click', function() {
+    document.getElementById('image-modal').style.display = 'none';
+});
+
+</script>
+
 
     
     <script>
@@ -368,7 +424,13 @@ textarea {
 
 
 
+<script>
+    function scrollToBottom() {
+    const messagesDiv = document.getElementById('messages');
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
 
+</script>
 
 
 
@@ -442,7 +504,7 @@ textarea {
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
         import { getFirestore, collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBKfTE0qZdxVLq0lvmli367_yyqpGK-fPA",
@@ -457,6 +519,7 @@ textarea {
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const storage = getStorage(app);
+
 
 
         let userId = ""; // ID trenutnog korisnika
@@ -621,15 +684,23 @@ async function fetchContacts() {
     displayUsers(uniqueContacts); // Prikaži kontakte bez duplikata
 }
 
-// Funkcija za prikazivanje korisnika u listi
-function displayUsers(users) {
+function displayUsers(users) { 
     const usersListDiv = document.getElementById('users-list');
     usersListDiv.innerHTML = ''; // Očisti prethodnu listu
 
     users.forEach(user => {
         const userElement = document.createElement('div');
         userElement.classList.add('user-item');
-        userElement.innerText = user.userName;
+
+        // Provjeravamo da li korisnik ima sliku profila
+        if (user.profilePictureUrl) {
+            const imgElement = document.createElement('img');
+            imgElement.src = user.profilePictureUrl; // Postavljamo URL slike
+            userElement.appendChild(imgElement);
+        } else {
+            // Ako nema sliku, prikazujemo inicijale ili samo ime
+            userElement.innerText = user.userName; 
+        }
 
         // Dodaj event listener za ulazak u chat sa odabranim korisnikom
         userElement.addEventListener('click', () => {
@@ -664,8 +735,9 @@ async function fetchUsers() {
         const userData = doc.data();
         const userName = userData.ime;
         const userId = doc.id;
+        const profilePictureUrl = userData.profilePictureUrl || ''; // Preuzimamo URL slike ako postoji
 
-        allUsers.push({ userName, userId });
+        allUsers.push({ userName, userId, profilePictureUrl });
     });
 
     // Nakon dohvaćanja svih korisnika, prikaži samo one s kojima je započet razgovor
@@ -873,6 +945,10 @@ function openChat(userName) {
         console.error('Korisnik nije pronađen');
     }
 
+    // Sakrij pretragu korisnika
+    const searchContainer = document.getElementById('search-container');
+    searchContainer.style.display = 'none';
+
     // Postojeći kod za prikazivanje chata...
     const messagesDiv = document.getElementById('messages');
     const messageInputDiv = document.getElementById('message-input');
@@ -891,6 +967,7 @@ function openChat(userName) {
     loadMessageHistory();
     listenForNewMessages();
 }
+
 
 
 
@@ -923,17 +1000,30 @@ async function loadMessageHistory() {
         const messageElement = document.createElement('div');
         messageElement.classList.add('message');
 
-        // Proveri ko je pošiljalac i dodaj odgovarajuću klasu
+        // Provjeravamo da li je poruka slika
+        if (messageData.isImage) {
+            const imgElement = document.createElement('img');
+            imgElement.src = messageData.message; // Postavi URL slike
+            imgElement.style.maxWidth = '200px'; // Maksimalna širina slike
+            imgElement.style.borderRadius = '10px'; // Zaobljeni uglovi (opciono)
+            imgElement.style.marginBottom = '10px'; // Razmak ispod slike (opciono)
+            messageElement.appendChild(imgElement);
+        } else {
+            // Ako nije slika, prikazuje tekstualnu poruku
+            messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
+        }
+
+        // Dodaj odgovarajuću klasu za pošiljaoca ili primaoca
         if (messageData.sender === username) {
             messageElement.classList.add('sender');
         } else {
             messageElement.classList.add('recipient');
         }
 
-        messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
         messagesDiv.appendChild(messageElement);
     });
 }
+
 
 
 function listenForNewMessages() {
@@ -965,18 +1055,35 @@ function listenForNewMessages() {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message');
 
-            // Proveri ko je pošiljalac i dodaj odgovarajuću klasu
+            // Provjeravamo da li je poruka slika
+            if (messageData.isImage) {
+                const imgElement = document.createElement('img');
+                imgElement.src = messageData.message; // Postavi URL slike
+                imgElement.style.maxWidth = '200px'; // Maksimalna širina slike
+                imgElement.style.borderRadius = '10px'; // Zaobljeni uglovi (opciono)
+                imgElement.style.marginBottom = '10px'; // Razmak ispod slike (opciono)
+                messageElement.appendChild(imgElement);
+            } else {
+                // Ako nije slika, prikazuje tekstualnu poruku
+                messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
+            }
+
+            // Dodaj odgovarajuću klasu za pošiljaoca ili primaoca
             if (messageData.sender === username) {
                 messageElement.classList.add('sender');
             } else {
                 messageElement.classList.add('recipient');
             }
 
-            messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
             messagesDiv.appendChild(messageElement);
         });
+
+        // Automatski skroluj na dno nakon što se prikažu poruke
+        scrollToBottom();
     });
 }
+
+
 
 
 
@@ -1006,38 +1113,47 @@ function resetChat() {
     const messageInputDiv = document.getElementById('message-input');
     const chatHeaderTitle = document.getElementById('chat-header-title');
     const backButton = document.getElementById('back-to-users');
+    const searchContainer = document.getElementById('search-container');
 
     usersListDiv.style.display = 'block'; // Prikaži listu korisnika
     messagesDiv.style.display = 'none'; // Sakrij chat prozor
-    messageInputDiv.style.display = 'none'; // Sakrij ulaz za poruku
+    messageInputDiv.style.display = 'none'; // Sakrij unos poruka
     chatHeaderTitle.innerText = 'Chat'; // Resetuj naslov na 'Chat'
-    backButton.style.display = 'none'; // Sakrij dugme za povratak NAKON OVOGA DODAJ
+    backButton.style.display = 'none'; // Sakrij dugme za povratak
+
+    // Ponovo prikaži pretragu korisnika
+    searchContainer.style.display = 'block';
 }
+
 
 
 
 
 // Funkcija za slanje poruke
 async function sendMessage() {
-        const messageInput = document.getElementById('chat-message');
-        const messageText = messageInput.value.trim();
+    const messageInput = document.getElementById('chat-message');
+    const messageText = messageInput.value.trim();
 
-        if (messageText) {
-            const messagesCollection = collection(db, 'poruke');
-            try {
-                await addDoc(messagesCollection, {
-                    sender: username, // Ime pošiljaoca
-                    recipient: selectedUserName, // Ime primaoca
-                    message: messageText, // Tekst poruke
-                    timestamp: new Date() // Vreme slanja poruke
-                });
-                console.log("Poruka uspješno poslana:", messageText);
-                messageInput.value = ''; // Očisti ulaz nakon slanja
-            } catch (error) {
-                console.error("Greška prilikom slanja poruke:", error);
-            }
+    if (messageText) {
+        const messagesCollection = collection(db, 'poruke');
+        try {
+            await addDoc(messagesCollection, {
+                sender: username, // Ime pošiljaoca
+                recipient: selectedUserName, // Ime primaoca
+                message: messageText, // Tekst poruke
+                timestamp: new Date() // Vreme slanja poruke
+            });
+            console.log("Poruka uspješno poslana:", messageText);
+            messageInput.value = ''; // Očisti unos nakon slanja
+
+            // Automatsko skrolovanje na dno nakon slanja poruke
+            scrollToBottom();
+        } catch (error) {
+            console.error("Greška prilikom slanja poruke:", error);
         }
     }
+}
+
 
     // Dodajte događaj za slanje poruke kada se klikne na dugme
     document.getElementById('send-message').addEventListener('click', sendMessage);
@@ -1060,59 +1176,50 @@ function openChatWithUser(userId) {
 }
 
 
+document.getElementById('send-image').addEventListener('click', () => {
+    // Otvori prozor za odabir slike
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (event) => {
+        const file = event.target.files[0]; // Preuzimanje odabrane slike
 
-// Funkcija za prikazivanje ikonica ispod poruke
-document.querySelectorAll('.message').forEach(message => {
-    message.addEventListener('click', () => {
-        const messageId = message.id.split('-')[1];
-        const reactionIcons = document.getElementById(`reaction-icons-${messageId}`);
-        
-        // Prikaži ili sakrij ikonice
-        if (reactionIcons.style.display === 'none') {
-            reactionIcons.style.display = 'flex';
-        } else {
-            reactionIcons.style.display = 'none';
+        if (file) {
+            try {
+                console.log('Slika je odabrana:', file.name);
+                
+                // Kreiranje reference za upload slike u Firebase Storage
+                const storageRef = ref(storage, 'chatImages/' + selectedUserName + '_' + file.name);
+                console.log('Kreirana je referenca za Storage.');
+
+                // Upload slike u Firebase Storage
+                const snapshot = await uploadBytes(storageRef, file);
+                console.log('Slika je uspješno učitana u Storage:', snapshot);
+
+                // Dobijanje URL-a slike
+                const imageUrl = await getDownloadURL(snapshot.ref);
+                console.log('URL slike je dobijen:', imageUrl);
+
+                // Spremanje URL-a slike kao poruka u Firestore
+                const messagesCollection = collection(db, 'poruke');
+                await addDoc(messagesCollection, {
+                    sender: username, // Ime pošiljaoca
+                    recipient: selectedUserName, // Ime primaoca
+                    message: imageUrl, // URL slike kao poruka
+                    isImage: true, // Flag koji pokazuje da je poruka slika
+                    timestamp: new Date() // Vreme slanja
+                });
+
+                console.log("Slika je uspješno poslana u Firestore:", imageUrl);
+            } catch (error) {
+                console.error("Greška prilikom slanja slike:", error);
+            }
         }
-    });
+    };
+    input.click(); // Otvaranje prozora za odabir datoteke
 });
 
-// Funkcija za dodavanje reakcije
-document.querySelectorAll('.icon').forEach(icon => {
-    icon.addEventListener('click', async (event) => {
-        const reaction = event.target.dataset.reaction;
-        const messageId = event.target.closest('.message').id.split('-')[1];
 
-        // Ovdje dodaj kod za ažuriranje poruke u Firestore-u s reakcijom
-        const messageRef = doc(db, 'poruke', messageId);
-        await updateDoc(messageRef, {
-            reaction: reaction
-        });
-
-        // Prikaži reakciju ispod poruke
-        const reactionElement = document.createElement('span');
-        reactionElement.classList.add('reaction');
-        reactionElement.innerText = reaction;
-        document.getElementById(`message-${messageId}`).appendChild(reactionElement);
-    });
-});
-
-
-function displayMessages(messages) {
-    messages.forEach(messageData => {
-        const messageElement = document.createElement('div');
-        messageElement.classList.add('message');
-        messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
-
-        if (messageData.reaction) {
-            const reactionElement = document.createElement('span');
-            reactionElement.classList.add('reaction');
-            reactionElement.innerText = messageData.reaction;
-            messageElement.appendChild(reactionElement);
-        }
-
-        document.getElementById('messages').appendChild(messageElement);
-    });
-}
 
 
 
@@ -1489,7 +1596,7 @@ setupIncomingCallListener();
                 loadUserData();
             }, 5000);
         };
-    </script>function showCallingNotification(recipientName) {
+    </script>
 
 </body>
 </html>
