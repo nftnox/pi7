@@ -258,6 +258,22 @@ textarea {
     text-decoration: none;
     cursor: pointer;
 }
+.reaction-icons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 20px;
+}
+
+.icon {
+    cursor: pointer;
+    margin-right: 10px;
+    transition: transform 0.2s ease;
+}
+
+.icon:hover {
+    transform: scale(1.3);
+}
 
     </style>
 </head>
@@ -309,6 +325,7 @@ textarea {
             <div id="messages" style="display: none;"></div> <!-- Skriveno dok ne odabereš korisnika -->
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
+                
                 <button id="start-call">📞</button> <!-- Dugme za započinjanje poziva -->
 
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
@@ -320,7 +337,17 @@ textarea {
     </div>
     
    
-
+    <div class="message" id="message-${messageId}">
+        ${messageText}
+        <div class="reaction-icons" id="reaction-icons-${messageId}" style="display: none;">
+            <span class="icon" data-reaction="❤️">❤️</span>
+            <span class="icon" data-reaction="😄">😄</span>
+            <span class="icon" data-reaction="😢">😢</span>
+            <span class="icon" data-reaction="😡">😡</span>
+            <span class="icon" data-reaction="👍">👍</span>
+        </div>
+    </div>
+    
 
     
     <script>
@@ -415,6 +442,7 @@ textarea {
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
         import { getFirestore, collection, getDocs, query, where, doc, getDoc, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBKfTE0qZdxVLq0lvmli367_yyqpGK-fPA",
@@ -428,6 +456,8 @@ textarea {
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const storage = getStorage(app);
+
 
         let userId = ""; // ID trenutnog korisnika
         let username = ""; // Pravi username korisnika
@@ -1031,6 +1061,58 @@ function openChatWithUser(userId) {
 
 
 
+// Funkcija za prikazivanje ikonica ispod poruke
+document.querySelectorAll('.message').forEach(message => {
+    message.addEventListener('click', () => {
+        const messageId = message.id.split('-')[1];
+        const reactionIcons = document.getElementById(`reaction-icons-${messageId}`);
+        
+        // Prikaži ili sakrij ikonice
+        if (reactionIcons.style.display === 'none') {
+            reactionIcons.style.display = 'flex';
+        } else {
+            reactionIcons.style.display = 'none';
+        }
+    });
+});
+
+// Funkcija za dodavanje reakcije
+document.querySelectorAll('.icon').forEach(icon => {
+    icon.addEventListener('click', async (event) => {
+        const reaction = event.target.dataset.reaction;
+        const messageId = event.target.closest('.message').id.split('-')[1];
+
+        // Ovdje dodaj kod za ažuriranje poruke u Firestore-u s reakcijom
+        const messageRef = doc(db, 'poruke', messageId);
+        await updateDoc(messageRef, {
+            reaction: reaction
+        });
+
+        // Prikaži reakciju ispod poruke
+        const reactionElement = document.createElement('span');
+        reactionElement.classList.add('reaction');
+        reactionElement.innerText = reaction;
+        document.getElementById(`message-${messageId}`).appendChild(reactionElement);
+    });
+});
+
+
+function displayMessages(messages) {
+    messages.forEach(messageData => {
+        const messageElement = document.createElement('div');
+        messageElement.classList.add('message');
+        messageElement.innerText = `${messageData.sender}: ${messageData.message}`;
+
+        if (messageData.reaction) {
+            const reactionElement = document.createElement('span');
+            reactionElement.classList.add('reaction');
+            reactionElement.innerText = messageData.reaction;
+            messageElement.appendChild(reactionElement);
+        }
+
+        document.getElementById('messages').appendChild(messageElement);
+    });
+}
 
 
 
@@ -1299,13 +1381,6 @@ function showCallingNotification(recipientName) {
 
 // Function to show incoming call notification (callee side)
 function showIncomingCallNotification(callerName, callId) {
-    // Create audio element for ringtone
-    const ringtone = new Audio('images/ringtone.mp3');
-    ringtone.loop = true;
-    ringtone.play().catch(error => {
-        console.error('Error playing ringtone:', error);
-    });
-
     const incomingCallOverlay = document.createElement('div');
     incomingCallOverlay.classList.add('incoming-call-overlay');
     incomingCallOverlay.innerHTML = 
@@ -1332,26 +1407,6 @@ function showIncomingCallNotification(callerName, callId) {
     incomingCallOverlay.style.fontSize = '24px';
 
     document.body.appendChild(incomingCallOverlay);
-
-    // Event for accepting the call
-    document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
-        ringtone.pause(); // Stop the ringtone
-        ringtone.currentTime = 0; // Reset to the beginning
-        document.body.removeChild(incomingCallOverlay); // Remove overlay
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        await acceptCall(callId, stream);
-    });
-
-    // Event for declining the call
-    document.getElementById(`decline-call-${callId}`).addEventListener('click', async () => {
-        ringtone.pause(); // Stop the ringtone
-        ringtone.currentTime = 0; // Reset to the beginning
-        document.body.removeChild(incomingCallOverlay); // Remove overlay
-        // Optionally, update call document to indicate call was declined
-        await updateDoc(doc(db, 'calls', callId), { ongoing: false });
-    });
-
-
 
     // Event for accepting the call
     document.getElementById(`answer-call-${callId}`).addEventListener('click', async () => {
