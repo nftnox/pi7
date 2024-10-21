@@ -1585,7 +1585,86 @@ function showIncomingCallNotification(callerName, callId) {
 }
 
 // Function to show "End Call" button
-// Funkcija za prikaz "End Call" dugmeta kao crvenog kruga sa bijelim "X"
+// Function to add the "Flip Camera" button
+function showFlipCameraButton(peerConnection, stream) {
+    const flipCameraButton = document.createElement('div');
+    flipCameraButton.id = 'flip-camera';
+    flipCameraButton.style.position = 'fixed';
+    flipCameraButton.style.bottom = '20px';
+    flipCameraButton.style.left = 'calc(50% + 80px)'; // Positioned right to the "End Call" button
+    flipCameraButton.style.width = '60px';
+    flipCameraButton.style.height = '60px';
+    flipCameraButton.style.backgroundColor = 'gray';
+    flipCameraButton.style.borderRadius = '50%';
+    flipCameraButton.style.display = 'flex';
+    flipCameraButton.style.justifyContent = 'center';
+    flipCameraButton.style.alignItems = 'center';
+    flipCameraButton.style.zIndex = '10001';
+    flipCameraButton.style.cursor = 'pointer';
+
+    // Add a white camera icon and "Flip" label inside the gray circle
+    const cameraIcon = document.createElement('div');
+    cameraIcon.style.color = 'white';
+    cameraIcon.style.fontSize = '24px';
+    cameraIcon.style.fontWeight = 'bold';
+    cameraIcon.textContent = '📷';
+
+    const flipLabel = document.createElement('div');
+    flipLabel.style.color = 'white';
+    flipLabel.style.fontSize = '12px';
+    flipLabel.style.marginTop = '4px';
+    flipLabel.textContent = 'Flip';
+
+    flipCameraButton.appendChild(cameraIcon);
+    flipCameraButton.appendChild(flipLabel);
+    document.body.appendChild(flipCameraButton);
+
+    let useFrontCamera = true; // Flag to toggle camera
+
+    // Event listener for the "Flip Camera" button
+    flipCameraButton.addEventListener('click', async () => {
+        useFrontCamera = !useFrontCamera; // Toggle the flag
+
+        // Define constraints for the camera switch
+        const videoConstraints = {
+            video: {
+                facingMode: useFrontCamera ? 'user' : 'environment'
+            },
+            audio: true
+        };
+
+        try {
+            // Stop the current tracks
+            stream.getTracks().forEach(track => track.stop());
+
+            // Get new video stream
+            const newStream = await navigator.mediaDevices.getUserMedia(videoConstraints);
+            
+            // Update the local video element
+            const localVideo = document.getElementById('localVideo');
+            localVideo.srcObject = newStream;
+
+            // Remove existing video tracks from the peer connection
+            const senders = peerConnection.getSenders();
+            senders.forEach(sender => {
+                if (sender.track.kind === 'video') {
+                    peerConnection.removeTrack(sender);
+                }
+            });
+
+            // Add the new video tracks to the peer connection
+            newStream.getTracks().forEach(track => {
+                peerConnection.addTrack(track, newStream);
+            });
+
+            console.log('Camera flipped successfully');
+        } catch (error) {
+            console.error('Error flipping the camera:', error);
+        }
+    });
+}
+
+// Modify the function to add "End Call" and "Flip Camera" buttons
 function showEndCallButton(callId, peerConnection) {
     const endCallButton = document.createElement('div');
     endCallButton.id = 'end-call';
@@ -1603,7 +1682,7 @@ function showEndCallButton(callId, peerConnection) {
     endCallButton.style.zIndex = '10001';
     endCallButton.style.cursor = 'pointer';
 
-    // Dodaj bijelo "X" unutar crvenog kruga
+    // Add white "X" inside the red circle
     const xIcon = document.createElement('div');
     xIcon.style.color = 'white';
     xIcon.style.fontSize = '24px';
@@ -1619,7 +1698,11 @@ function showEndCallButton(callId, peerConnection) {
         document.body.removeChild(endCallButton);
         console.log("Call ended.");
     });
+
+    // Add the Flip Camera button next to the End Call button
+    showFlipCameraButton(peerConnection, stream);
 }
+
 
 
 // Function to set up listening for incoming calls
