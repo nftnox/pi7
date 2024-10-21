@@ -7,7 +7,9 @@
     <title>Index</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+
     <style>
 
 /* Sprečavanje zoomiranja na mobilnim uređajima */
@@ -64,30 +66,44 @@ textarea {
 
         #users-list {
     display: flex;
-    flex-wrap: wrap; /* Omogućava prelazak korisnika u novi red */
-    gap: 10px; /* Razmak između korisnika */
+    flex-direction: column; /* Stack users vertically */
+    gap: 15px; /* Add space between users */
     padding: 10px;
-    justify-content: flex-start; /* Poredaj korisnike s leva */
 }
 
 .user-item {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%; /* Oblik kruga */
-    background-color: #5a99cd; /* Boja pozadine korisnika */
-    color: white; /* Boja teksta korisnika */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    display: flex; /* Align elements horizontally */
+    align-items: center; /* Center image and text vertically */
+    gap: 10px; /* Space between profile image and text */
+    padding: 10px;
+    border-bottom: 1px solid #ccc; /* Add a separator line */
     cursor: pointer;
-    font-size: 14px; /* Veličina fonta za ime */
-    text-align: center;
-    overflow: hidden; /* U slučaju dužih imena */
-    text-overflow: ellipsis; /* Skrati tekst ako je predugačak */
+    transition: background-color 0.3s ease;
 }
 
 .user-item:hover {
     background-color: #3f78a9; /* Tamnija boja kada se prelazi mišem */
+}
+
+
+
+/* User info styling */
+.user-info {
+    display: flex;
+    flex-direction: column; /* Stack name and last message vertically */
+}
+
+.user-info .user-name {
+    font-weight: bold; /* Bold the username */
+    margin-bottom: 5px; /* Add space below the name */
+}
+
+.user-info .last-message {
+    color: #666; /* Gray color for the last message */
+    font-size: 14px; /* Slightly smaller font size */
+    overflow: hidden;
+    text-overflow: ellipsis; /* Truncate long messages */
+    white-space: nowrap; /* Prevent text from wrapping */
 }
 
         /* Poruke u chat prozoru */
@@ -254,10 +270,11 @@ textarea {
 
 
 .user-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* Kako bi slika ispunila krug bez deformacija */
-    border-radius: 50%; /* Zadrži kružni oblik slike */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    background-color: #5a99cd; /* Fallback background */
 }
 
 
@@ -466,25 +483,7 @@ document.getElementById('close-image-modal').addEventListener('click', function(
         </p>
     </div>
 
-    <div class="partnership-box">
-        <p>
-            Delta coin is selecting partnerships with crypto-services and general businesses ahead of our Open Network launch.
-            <br>
-            <img src="images/ape1.png" alt="Ape Image" style="max-width: 100%; height: auto;">
-            <br>
-            This is a unique, early opportunity for businesses to connect with over 10 million engaged Delta coin fans and become part of Delta’s rapidly expanding Web3 ecosystem.
-            If your company is interested in partnering with Delta or you’d like to introduce a business to partner with Delta, tap “Partnerships” to explore how and why.
-        </p>
-    </div>
-    
-
-    <div class="partnership-box">
-        <p>
-            Delta coin is selecting partnerships with crypto-services and general businesses ahead of our Open Network launch. 
-            This is a unique, early opportunity for businesses to connect with over 10 million engaged Delta coin fans and become part of Delta’s rapidly expanding Web3 ecosystem. 
-            If your company is interested in partnering with Delta or you’d like to introduce a business to partner with Delta, tap “Partnerships” to explore how and why.
-        </p>
-    </div>
+   
 
     <div class="background blue"></div>
     <div class="background purple"></div>
@@ -680,7 +679,7 @@ let contacts = new Set(); // Set koristi se za eliminaciju duplikata
 async function fetchContacts() {
     const chatRequestCollection = collection(db, 'chatRequests');
 
-    // Upiti za oba slučaja: korisnik kao requester i korisnik kao recipient
+    // Upiti za chatove u kojima je korisnik requester ili recipient
     const qRequester = query(chatRequestCollection, where('accepted', '==', true), where('requester', '==', username));
     const qRecipient = query(chatRequestCollection, where('accepted', '==', true), where('recipientName', '==', username));
 
@@ -690,21 +689,29 @@ async function fetchContacts() {
     const querySnapshotRequester = await getDocs(qRequester);
     querySnapshotRequester.forEach(doc => {
         const chatData = doc.data();
-        contacts.add(JSON.stringify({ userName: chatData.recipientName, userId: chatData.recipientId }));
+        const contactUser = allUsers.find(user => user.userName === chatData.recipientName);
+        if (contactUser) {
+            contacts.add(JSON.stringify(contactUser));
+        }
     });
 
     // Dohvati sve chatove gdje je trenutni korisnik bio recipient
     const querySnapshotRecipient = await getDocs(qRecipient);
     querySnapshotRecipient.forEach(doc => {
         const chatData = doc.data();
-        contacts.add(JSON.stringify({ userName: chatData.requester, userId: chatData.requesterId }));
+        const contactUser = allUsers.find(user => user.userName === chatData.requester);
+        if (contactUser) {
+            contacts.add(JSON.stringify(contactUser));
+        }
     });
 
+    // Prikaži sve kontakte sa profilnim slikama
     const uniqueContacts = Array.from(contacts).map(item => JSON.parse(item));
-    displayUsers(uniqueContacts); // Prikaži kontakte bez duplikata
+    displayUsers(uniqueContacts); // Prikaži kontakte
 }
 
-function displayUsers(users) { 
+
+function displayUsers(users) {
     const usersListDiv = document.getElementById('users-list');
     usersListDiv.innerHTML = ''; // Očisti prethodnu listu
 
@@ -712,17 +719,43 @@ function displayUsers(users) {
         const userElement = document.createElement('div');
         userElement.classList.add('user-item');
 
-        // Provjeravamo da li korisnik ima sliku profila
+        // Profilna slika ili prazan krug s ikonom
+        const imgElement = document.createElement('div');
+        imgElement.style.width = '50px';
+        imgElement.style.height = '50px';
+        imgElement.style.borderRadius = '50%';
+        imgElement.style.marginRight = '10px';
+        imgElement.style.display = 'flex';
+        imgElement.style.justifyContent = 'center';
+        imgElement.style.alignItems = 'center';
+
         if (user.profilePictureUrl) {
-            const imgElement = document.createElement('img');
-            imgElement.src = user.profilePictureUrl; // Postavljamo URL slike
-            userElement.appendChild(imgElement);
+            imgElement.style.backgroundImage = `url(${user.profilePictureUrl})`;
+            imgElement.style.backgroundSize = 'cover';
+            imgElement.style.backgroundPosition = 'center';
         } else {
-            // Ako nema sliku, prikazujemo inicijale ili samo ime
-            userElement.innerText = user.userName; 
+            imgElement.style.backgroundColor = '#e0e0e0'; // Svijetlo siva za prazan krug
+            imgElement.innerHTML = '<i class="fas fa-user" style="font-size: 20px; color: #7d7d7d;"></i>'; // Ikona korisnika
         }
 
-        // Dodaj event listener za ulazak u chat sa odabranim korisnikom
+        userElement.appendChild(imgElement);
+
+        // Korisničko ime i zadnja poruka
+        const userInfo = document.createElement('div');
+        userInfo.classList.add('user-info');
+        const userName = document.createElement('div');
+        userName.classList.add('user-name');
+        userName.textContent = user.userName;
+
+        const lastMessage = document.createElement('div');
+        lastMessage.classList.add('last-message');
+        lastMessage.textContent = user.lastMessage || 'No messages yet';
+
+        userInfo.appendChild(userName);
+        userInfo.appendChild(lastMessage);
+        userElement.appendChild(userInfo);
+
+        // Klik za otvaranje chata s korisnikom
         userElement.addEventListener('click', () => {
             checkExistingChatRequest(user.userId, user.userName);
         });
@@ -730,6 +763,8 @@ function displayUsers(users) {
         usersListDiv.appendChild(userElement);
     });
 }
+
+
 
 // Funkcija za pretragu korisnika prilikom unosa
 document.getElementById('user-search').addEventListener('input', function () {
