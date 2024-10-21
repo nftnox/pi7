@@ -64,6 +64,13 @@ textarea {
             height: 100%;
         }
 
+
+        #chat-message {
+        width: 100px; /* Postavi željenu širinu */
+        padding: 5px; /* Smanji unutrašnji razmak */
+        font-size: 14px; /* Smanji veličinu fonta */
+    }
+
         #users-list {
     display: flex;
     flex-direction: column; /* Stack users vertically */
@@ -336,6 +343,30 @@ textarea {
     }
 }
 
+
+
+#send-image {
+        width: 40px; /* Širina dugmeta */
+        height: 40px; /* Visina dugmeta */
+        font-size: 20px; /* Veličina fonta unutar dugmeta */
+        background-color: #f0f0f0; /* Svijetlo siva boja pozadine */
+        border: none;
+        border-radius: 5px; /* Zaobljeni uglovi */
+        cursor: pointer;
+    }
+
+    /* Smanjenje pozadine dugmeta za video poziv */
+    #start-call {
+        width: 40px; /* Širina dugmeta */
+        height: 40px; /* Visina dugmeta */
+        padding: 5px; /* Manji unutrašnji razmak */
+        font-size: 18px; /* Veličina ikone */
+        background-color: rgba(0, 0, 0, 0.1); /* Smanjena pozadina */
+        border: none;
+        border-radius: 5px; /* Zaobljeni uglovi */
+        cursor: pointer;
+    }
+
     </style>
 </head>
 <body>
@@ -351,7 +382,8 @@ textarea {
             <a href="#"><span class="material-icons">home</span> Home</a>
             <a href="#"><span class="material-icons">group</span> Team</a>
             <a href="#" id="chat-link"><span class="material-icons">chat</span> Chat</a>
-            <a href="#"><span class="material-icons">person</span> Profile</a>
+            <a href="javascript:void(0);" id="profile-link"><span class="material-icons">person</span> Profile</a>
+
         </nav>
     
         <!-- Mobilni meni -->
@@ -359,10 +391,22 @@ textarea {
             <a href="#"><span class="material-icons">home</span> Home</a>
             <a href="#"><span class="material-icons">group</span> Team</a>
             <a href="#" id="chat-link"><span class="material-icons">chat</span> Chat</a>
-            <a href="#"><span class="material-icons">person</span> Profile</a>
+            <a href="javascript:void(0);" id="profile-link-toggle"><span class="material-icons">person</span> Profile</a>
+
         </nav>
     </header>
 
+
+    <script>
+        document.getElementById('profile-link').addEventListener('click', () => {
+    window.location.href = `profil.html?username=${userParam}`;
+});
+
+document.getElementById('profile-link-toggle').addEventListener('click', () => {
+    window.location.href = `profil.html?username=${userParam}`;
+});
+
+    </script>
 
     <div id="chat-modal">
         <div id="chat-header">
@@ -387,7 +431,8 @@ textarea {
             <div id="message-input" style="display: none;">
                 <button id="send-image">+</button> <!-- Dugme za dodavanje slike -->
                 
-                <button id="start-call">📞</button> <!-- Dugme za započinjanje poziva -->
+                <button id="start-call"><span class="material-icons">videocam</span></button>
+
 
                 <input type="text" id="chat-message" placeholder="Unesite poruku">
                 <button id="send-message">Pošalji</button>
@@ -403,12 +448,11 @@ textarea {
     <img class="modal-content" id="full-screen-image">
 </div>
 
-<div id="filter-buttons" style="position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 10001; display: flex; gap: 10px;">
-    <button id="no-filter" style="padding: 10px;">Bez filtera</button>
-    <button id="black-white" style="padding: 10px;">Crno-bijelo</button>
-    <button id="blur" style="padding: 10px;">Zamućenje</button>
-    <button id="sepia" style="padding: 10px;">Sepija</button>
-</div>
+
+
+
+
+
 
 
 <script>
