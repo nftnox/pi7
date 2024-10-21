@@ -1585,22 +1585,32 @@ function showIncomingCallNotification(callerName, callId) {
 }
 
 // Function to show "End Call" button
+// Funkcija za prikaz "End Call" dugmeta kao crvenog kruga sa bijelim "X"
 function showEndCallButton(callId, peerConnection) {
-    const endCallButton = document.createElement('button');
+    const endCallButton = document.createElement('div');
     endCallButton.id = 'end-call';
     endCallButton.style.position = 'fixed';
     endCallButton.style.bottom = '20px';
     endCallButton.style.left = '50%';
     endCallButton.style.transform = 'translateX(-50%)';
-    endCallButton.style.padding = '10px 20px';
+    endCallButton.style.width = '60px';
+    endCallButton.style.height = '60px';
     endCallButton.style.backgroundColor = 'red';
-    endCallButton.style.color = 'white';
-    endCallButton.style.fontSize = '18px';
-    endCallButton.style.border = 'none';
-    endCallButton.style.borderRadius = '5px';
+    endCallButton.style.borderRadius = '50%';
+    endCallButton.style.display = 'flex';
+    endCallButton.style.justifyContent = 'center';
+    endCallButton.style.alignItems = 'center';
     endCallButton.style.zIndex = '10001';
-    endCallButton.textContent = 'End Call';
+    endCallButton.style.cursor = 'pointer';
 
+    // Dodaj bijelo "X" unutar crvenog kruga
+    const xIcon = document.createElement('div');
+    xIcon.style.color = 'white';
+    xIcon.style.fontSize = '24px';
+    xIcon.style.fontWeight = 'bold';
+    xIcon.textContent = 'X';
+
+    endCallButton.appendChild(xIcon);
     document.body.appendChild(endCallButton);
 
     endCallButton.addEventListener('click', async () => {
@@ -1610,6 +1620,7 @@ function showEndCallButton(callId, peerConnection) {
         console.log("Call ended.");
     });
 }
+
 
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
