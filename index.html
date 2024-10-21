@@ -1459,62 +1459,24 @@ async function acceptCall(callId, stream) {
 // Function to add local video
 function addLocalVideo(stream) {
     let localVideo = document.getElementById('localVideo');
-    let canvas = document.getElementById('video-canvas');
-
     if (!localVideo) {
         localVideo = document.createElement('video');
         localVideo.id = 'localVideo';
         localVideo.style.position = 'absolute';
         localVideo.style.bottom = '10px';
         localVideo.style.right = '10px';
-        localVideo.style.width = '100px';
+        localVideo.style.width = '100px'; // Smaller local video
         localVideo.style.border = '2px solid yellow';
-        localVideo.style.zIndex = '10000';
+        localVideo.style.zIndex = '10000'; // Higher z-index to appear over remote video
         localVideo.autoplay = true;
         localVideo.muted = true;
         localVideo.playsInline = true;
+        // Dodajte transformaciju za zrcaljenje
         localVideo.style.transform = 'scaleX(-1)';
         document.body.appendChild(localVideo);
     }
     localVideo.srcObject = stream;
-
-    // Canvas za primjenu filtera
-    if (!canvas) {
-        canvas = document.createElement('canvas');
-        canvas.id = 'video-canvas';
-        canvas.width = localVideo.videoWidth;
-        canvas.height = localVideo.videoHeight;
-        canvas.style.position = 'absolute';
-        canvas.style.bottom = '10px';
-        canvas.style.right = '10px';
-        canvas.style.zIndex = '9999';
-        document.body.appendChild(canvas);
-    }
-
-    const ctx = canvas.getContext('2d');
-
-    // Animacija za crtanje video streama na Canvas
-    function drawToCanvas() {
-        ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
-        requestAnimationFrame(drawToCanvas);
-    }
-    drawToCanvas();
-
-    // Dodavanje event listenera za filtere
-    document.getElementById('no-filter').addEventListener('click', () => {
-        ctx.filter = 'none';
-    });
-    document.getElementById('black-white').addEventListener('click', () => {
-        ctx.filter = 'grayscale(100%)';
-    });
-    document.getElementById('blur').addEventListener('click', () => {
-        ctx.filter = 'blur(5px)';
-    });
-    document.getElementById('sepia').addEventListener('click', () => {
-        ctx.filter = 'sepia(100%)';
-    });
 }
-
 
 
 // Function to add remote video
