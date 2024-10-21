@@ -1585,110 +1585,31 @@ function showIncomingCallNotification(callerName, callId) {
 }
 
 // Function to show "End Call" button
-// Function to show "End Call" and "Flip Camera" buttons
-function showCallControlButtons(callId, peerConnection) {
-    // Create "End Call" button
-    const endCallButton = document.createElement('div');
+function showEndCallButton(callId, peerConnection) {
+    const endCallButton = document.createElement('button');
     endCallButton.id = 'end-call';
     endCallButton.style.position = 'fixed';
     endCallButton.style.bottom = '20px';
-    endCallButton.style.left = '45%';
-    endCallButton.style.width = '60px';
-    endCallButton.style.height = '60px';
+    endCallButton.style.left = '50%';
+    endCallButton.style.transform = 'translateX(-50%)';
+    endCallButton.style.padding = '10px 20px';
     endCallButton.style.backgroundColor = 'red';
-    endCallButton.style.borderRadius = '50%';
-    endCallButton.style.display = 'flex';
-    endCallButton.style.justifyContent = 'center';
-    endCallButton.style.alignItems = 'center';
+    endCallButton.style.color = 'white';
+    endCallButton.style.fontSize = '18px';
+    endCallButton.style.border = 'none';
+    endCallButton.style.borderRadius = '5px';
     endCallButton.style.zIndex = '10001';
-    endCallButton.style.cursor = 'pointer';
+    endCallButton.textContent = 'End Call';
 
-    // Add white "X" inside the "End Call" button
-    const xIcon = document.createElement('div');
-    xIcon.style.color = 'white';
-    xIcon.style.fontSize = '24px';
-    xIcon.style.fontWeight = 'bold';
-    xIcon.textContent = 'X';
-
-    endCallButton.appendChild(xIcon);
     document.body.appendChild(endCallButton);
 
-    // Create "Flip Camera" button
-    const flipCameraButton = document.createElement('div');
-    flipCameraButton.id = 'flip-camera';
-    flipCameraButton.style.position = 'fixed';
-    flipCameraButton.style.bottom = '20px';
-    flipCameraButton.style.left = '55%';
-    flipCameraButton.style.width = '60px';
-    flipCameraButton.style.height = '60px';
-    flipCameraButton.style.backgroundColor = 'gray';
-    flipCameraButton.style.borderRadius = '50%';
-    flipCameraButton.style.display = 'flex';
-    flipCameraButton.style.justifyContent = 'center';
-    flipCameraButton.style.alignItems = 'center';
-    flipCameraButton.style.zIndex = '10001';
-    flipCameraButton.style.cursor = 'pointer';
-
-    // Add white camera icon and "Flip" label
-    const cameraIcon = document.createElement('div');
-    cameraIcon.style.color = 'white';
-    cameraIcon.style.fontSize = '24px';
-    cameraIcon.className = 'fas fa-camera'; // Use FontAwesome icon
-    flipCameraButton.appendChild(cameraIcon);
-
-    document.body.appendChild(flipCameraButton);
-
-    // Set initial camera state
-    let isFrontCamera = true;
-
-    // Add event listener to flip camera on click
-    flipCameraButton.addEventListener('click', async () => {
-        try {
-            // Stop current video tracks
-            const localVideo = document.getElementById('localVideo');
-            localVideo.srcObject.getTracks().forEach(track => track.stop());
-
-            // Toggle between front and back camera
-            isFrontCamera = !isFrontCamera;
-
-            // Get new stream based on camera toggle
-            const constraints = {
-                video: { facingMode: isFrontCamera ? 'user' : 'environment' },
-                audio: true
-            };
-            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-            // Update the local video with the new stream
-            localVideo.srcObject = newStream;
-
-            // Replace the video track in the peer connection
-            peerConnection.getSenders().forEach(sender => {
-                if (sender.track.kind === 'video') {
-                    sender.replaceTrack(newStream.getVideoTracks()[0]);
-                }
-            });
-
-            console.log('Camera flipped to', isFrontCamera ? 'front' : 'back');
-        } catch (error) {
-            console.error('Error flipping the camera:', error);
-        }
-    });
-
-    // Add event listener to end the call
     endCallButton.addEventListener('click', async () => {
         peerConnection.close();
         await updateDoc(doc(db, 'calls', callId), { ongoing: false });
         document.body.removeChild(endCallButton);
-        document.body.removeChild(flipCameraButton);
         console.log("Call ended.");
     });
 }
-
-// Call this function when the call is established
-function onCallEstablished(callId, peerConnection) {
-    showCallControlButtons(callId, peerConnection);
-}
-
 
 // Function to set up listening for incoming calls
 function setupIncomingCallListener() {
